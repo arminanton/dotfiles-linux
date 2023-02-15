@@ -1,0 +1,13 @@
+# .bash_profile
+
+# load scripts
+if [[ -z "${BASH_RC}" ]] && [[ -z "${BASH_FIRST}" ]] && [[ -f ~/.bashrc ]]; then
+	export BASH_FIRST="no"
+	. ~/.bashrc
+else
+	. ~/dotfiles/loader/william
+fi
+
+export BASH_PROFILE="loaded"
+# Set PATH, MANPATH, etc., for Homebrew.
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"

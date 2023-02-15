@@ -1,0 +1,548 @@
+#!/bin/bash
+
+function git-commit() # Git commit allowing to pass two scripts as message (title and description)
+{
+    if [[ -n "${1}" ]] && [[ -z "${2}" ]]; then
+        git commit -m "${1}"
+    fi
+
+    if [[ -n "${1}" ]] && [[ -n "${2}" ]]; then
+        git commit -m "${1}" -m "${2}"
+    fi
+}
+
+function git-push-upstream() # Git push with upstream for new feature branches
+{
+    local branch_name
+    branch_name="$(gb)"
+    git push --set-upstream origin $branch_name
+}
+
+function search-port-pid() # Find which process is using said port
+{
+    sudo netstat -tulpn | grep '5001'
+    if [[ -n "${1}" ]]; then
+        sudo netstat -tulpn | grep "${1}"
+    else
+        sudo netstat -tulpn
+    fi
+}
+
+function fwd-port() # Forward port From and To
+{
+    if [[ -n "${1}" ]] && [[ -n "${2}" ]]; then
+        echo "Redirecting port ${1} to ${2}..."
+        socat "tcp-listen:${2}",reuseaddr,fork "tcp:localhost:${1}"
+    fi
+}
+
+function check-port-in-use() # Check if port is in use
+{
+    if [[ -n "${1}" ]]; then
+        sudo lsof -n -i :$1 | grep LISTEN
+    fi
+}
+
+function read_file() # Safer way to read file contents
+{
+    local file_content
+
+    IFS=''
+
+    read -d '' -r file_content <"${1}"
+
+    printf '%s' "${file_content}"
+
+    IFS=' '
+}
+
+export NIX_NAME="nix"
+export NIX_OPEN="${NIX_NAME}OPEN"
+export NIX_CLOSE="${NIX_NAME}CLOSE"
+
+function nix-helper() # Nix command-line helper
+{
+# nixOPEN
+    if [[ -n "${1}" ]]; then
+        case $1 in
+        list | -l | l) # ************************************ List installed packages
+            nix-env -q
+            ;;
+
+        update | upgrade | -u | u) # ************************ Update all packages or a specific one
+            if [[ -n "${2}" ]]; then
+                nix-env -u $2;
+            else
+                nix-env -u;
+            fi
+            ;;
+
+        install | -i | i) # ********************************* Install a new package by its name
+            nix-env -iA nixpkgs.$2
+            ;;
+
+        erase | delete | remove | uninstall | -r | r) # ***** Delete an installed package
+            nix-env -e $2
+            ;;
+
+        backup | generations | -b | b) # ******************** List all backup generations
+            nix-env --list-generations
+            ;;
+
+        restore | recover | goback | undo | -z | z) # ******* Rollback to last backup or to specific one
+            if [[ -n "${2}" ]]; then
+                nix-env --switch-generation $2;
+            else
+                nix-env --rollback;
+            fi
+            ;;
+
+        *)
+            nix-menu
+            ;;
+        esac
+    else
+        nix-menu
+    fi
+# nixCLOSE
+}
+
+function nix-menu() # Nix help menu
+{
+            hash_symbol="#"
+            echo -e "\nNix Package Manager\n"
+            sed -n "/${NIX_OPEN}/,/${NIX_CLOSE}/p" "${HOME}/dotfiles/home/functions" | grep ".)\ #" |
+                    sed "s/${hash_symbol}//" |
+                    sed -r 's/([a-z])\)/\1/' |
+                    sed 's/^ *//g' |
+                    sed 's/\*/ /g' |
+                    awk '{print $0,"\n"}'
+}
+
+#######################################
+# Login to AWS and setup credentials
+# Arguments:
+#   1: AWS Profile (ex: lpstg, ndsdev)
+#   2: AWS Region (ex: us-east-1)
+# Returns:
+#   Nothing
+#######################################
+function aws_login {
+    AWS_PROFILE=${1}
+    AWS_PROFILE=${AWS_PROFILE:='lpstg'}
+    AWS_REGION=${2}
+    AWS_REGION=${AWS_REGION:='us-east-1'}
+
+    aws --profile "${AWS_PROFILE}" sso logout >/dev/null 2>&1
+
+    rm -rf "${HOME}/.aws/sso"
+
+    aws --profile "${AWS_PROFILE}" sso login
+
+    aws_setup_credentials
+}
+
+#######################################
+# Obtains AWS credentials out of SSO
+# Arguments:
+#   None
+# Returns:
+#   Nothing
+#######################################
+function aws_setup_credentials {
+    local role
+    local id
+    local sso_region
+    local sso_token
+    local credentials
+    local log
+
+    role="$(aws_config_value 'role')"
+
+    id="$(aws_config_value 'id')"
+
+    sso_region="$(aws_config_value 'sso_region')"
+
+    sso_token="$(aws_sso_token)"
+
+    log="$(
+        printf "\n%s\n\n%s\n\n%s\n%s\n%s\n%s\n%s\n" \
+            "Failure in obtaining the credentials!" \
+            "@ aws_config_value()" \
+            "Found these:" \
+            "id: [${id}]" \
+            "role: [${role}]" \
+            "sso_token: [${sso_token}]" \
+            "sso_region: [${sso_region}]"
+    )"
+
+    if [[ -z "${role}" ]] || [[ -z "${id}" ]] ||
+       [[ -z "${sso_region}" ]] || [[ -z "${sso_token}" ]]; then
+        echo -e "${log}"
+        exit 1
+    fi
+
+    credentials="$(
+        aws sso get-role-credentials \
+            --role-name "${role}" \
+            --account-id "${id}" \
+            --access-token "${sso_token}" \
+            --region "${sso_region}" \
+            --profile "${AWS_PROFILE}" 2>&1
+    )"
+
+    log+="$(
+        printf "\n%s\n%s\n" \
+            "[aws sso get-role-credentials] returned this:" \
+            "${credentials}"
+    )"
+
+    if [[ "${credentials}" == *"error"* ]]; then
+        echo -e "${log}"
+        exit 1
+    fi
+
+    local access_key
+    local secret_access_key
+    local session_token
+
+    access_key="$(
+        json_parse_value "${credentials}" "accessKeyId"
+    )"
+
+    secret_access_key="$(
+        json_parse_value "${credentials}" "secretAccessKey"
+    )"
+
+    session_token="$(
+        json_parse_value "${credentials}" "sessionToken"
+    )"
+
+    local execute
+    execute="$(
+        aws configure set aws_access_key_id "${access_key}" --profile "${AWS_PROFILE}" 2>&1
+        aws configure set aws_secret_access_key "${secret_access_key}" --profile "${AWS_PROFILE}" 2>&1
+        aws configure set aws_session_token "${session_token}" --profile "${AWS_PROFILE}" 2>&1
+        aws configure set region "${AWS_REGION}" --profile "${AWS_PROFILE}" 2>&1
+    )"
+
+    log+="$(
+            printf "\n%s\n%s\n%s\n%s\n\n%s\n%s\n" \
+                "Then, found these:" \
+                "access_key: [${access_key}]" \
+                "secret_access_key: [${secret_access_key}]" \
+                "session_token: [${session_token}]" \
+                "[aws configure set] returned this:" \
+                "${execute}"
+        )"
+
+    if [[ "${execute}" == *"error"* ]]; then
+        echo -e "${log}"
+        exit 1
+    fi
+}
+
+#######################################
+# Extracts values from aws_config
+# template file based on key given
+# Arguments:
+#   1: key
+# Returns:
+#   Value assigned to that key
+#######################################
+function aws_config_value {
+    local key
+    local value
+
+    if [[ -n "${1}" ]]; then
+        key="${1}"
+
+        value="$(
+            read_file "${HOME}/.aws/config" |
+                sed -n "/${AWS_PROFILE}]/,/role/p" |
+                grep "${key}" |
+                awk -F' = ' '{ print $2 }' 2>&1
+        )"
+
+        echo -e "${value}"
+    fi
+}
+
+#######################################
+# Extracts the SSO Token out of the
+# cached login files
+# Arguments:
+#   None
+# Returns:
+#   Nothing
+#######################################
+function aws_sso_token {
+    local cache_files
+    local key
+
+    cache_files="$(
+        find ~/.aws/sso/cache/*.json | awk '!/botocore/' 2>&1
+    )"
+    # alternative: awk "${filter}"
+
+    if [[ "${cache_files}" == *"No such file or directory"* ]]; then
+        key=""
+    else
+        IFS=$'\n' # split by new line
+        for file in $cache_files; do
+            if [[ -e "${file}" ]]; then
+                IFS=' '  # split by space
+                key="$(
+                    json_parse_value "$(
+                        read_file "${file}"
+                    )" "accessToken"
+                )"
+
+                if [[ -n "${key}" ]]; then
+                    break
+                fi
+            fi
+            IFS=$'\n' # split by new line
+        done
+    fi
+
+    echo -e "${key}"
+}
+
+#######################################
+# Parses a JSON string retriving the
+# value of the key provided
+# Arguments:
+#   1: json
+#   2: key
+# Returns:
+#   Value of the key provided
+#######################################
+function json_parse_value {
+    local json
+    local key
+    local value
+
+    if [[ -n "${1}" ]] && [[ -n "${2}" ]]; then
+        json="${1}"
+        key="${2}"
+        value="$(
+            echo -e "${json}" |
+                grep -o "\"${key}\": \"[^\"]*" |
+                grep -o '[^"]*$' 2>&1
+        )"
+
+        echo -e "${value}"
+    fi
+}
+
+#######################################
+# A safer way to read file contents
+# Arguments:
+#   Path of the file
+# Returns:
+#   Prints the file content
+#######################################
+function read_file {
+    local filepath
+
+    IFS=''
+
+    read -d '' -r filepath <"${1}"
+    printf '%s' "${filepath}"
+
+    IFS=' '
+}
+
+alias aws-login="aws_login"
+
+#######################################
+# Update .env with AWS credentials
+# Arguments:
+#   None
+# Returns:
+#   Nothing
+#######################################
+function update_env() {
+    sed -i'' -e "/AWS_ACCESS/d" "${HOME}/dev/edc-api-server/.env" &> /dev/null
+    sed -i'' -e "/AWS_SECRET/d" "${HOME}/dev/edc-api-server/.env" &> /dev/null
+
+    # print .aws/credentials to .env
+    cat ~/.aws/credentials >> "${HOME}/dev/edc-api-server/.env"
+
+    # remove lpstg reference
+    sed -i'' -e "/lpstg/d" "${HOME}/dev/edc-api-server/.env" &> /dev/null
+
+    # remove token
+    sed -i'' -e "/token/d" "${HOME}/dev/edc-api-server/.env" &> /dev/null
+
+    # substitute variable names using sed
+    sed -i'' -e 's/aws_access_key_id/EDC_AWS_ACCESS_KEY_ID/g' "${HOME}/dev/edc-api-server/.env" &> /dev/null
+    sed -i'' -e 's/aws_secret_access_key/EDC_AWS_SECRET_ACCESS_KEY/g' "${HOME}/dev/edc-api-server/.env" &> /dev/null
+}
+
+alias update-env="update_env"
+
+function mkd() # Create a new directory and enter it
+{
+	mkdir -p "$@" && cd "$_";
+}
+
+function cdf() # Change working directory to the top-most Finder window location
+{ # short for `cdfinder`
+	cd "$(osascript -e 'tell app "Finder" to POSIX path of (insertion location as alias)')";
+}
+
+function fs() # Determine size of a file or total size of a directory
+{
+	if du -b /dev/null > /dev/null 2>&1; then
+		local arg=-sbh;
+	else
+		local arg=-sh;
+	fi
+	if [[ -n "$@" ]]; then
+		du $arg -- "$@";
+	else
+		du $arg .[^.]* *;
+	fi;
+}
+
+function dataurl() # Create a data URL from a file
+{
+	local mimeType=$(file -b --mime-type "$1");
+	if [[ $mimeType == text/* ]]; then
+		mimeType="${mimeType};charset=utf-8";
+	fi
+	echo "data:${mimeType};base64,$(openssl base64 -in "$1" | tr -d '\n')";
+}
+
+function simpleServer() # Start an HTTP server from a directory, optionally specifying the port
+{
+	local port="${1:-8000}";
+	sleep 1 && open "http://localhost:${port}/" &
+	# Set the default Content-Type to `text/plain` instead of `application/octet-stream`
+	# And serve everything as UTF-8 (although not technically correct, this doesn’t break anything for binary files)
+	python -c $'import SimpleHTTPServer;\nmap = SimpleHTTPServer.SimpleHTTPRequestHandler.extensions_map;\nmap[""] = "text/plain";\nfor key, value in map.items():\n\tmap[key] = value + ";charset=UTF-8";\nSimpleHTTPServer.test();' "$port";
+}
+
+function gz() # Compare original and gzipped file size
+{
+	local origsize=$(wc -c < "$1");
+	local gzipsize=$(gzip -c "$1" | wc -c);
+	local ratio=$(echo "$gzipsize * 100 / $origsize" | bc -l);
+	printf "orig: %d bytes\n" "$origsize";
+	printf "gzip: %d bytes (%2.2f%%)\n" "$gzipsize" "$ratio";
+}
+
+function json() # Usage: `json '{"foo":42}'` or `echo '{"foo":42}' | json`
+{
+	if [ -t 0 ]; then # argument
+		python -mjson.tool <<< "$*" | pygmentize -l javascript;
+	else # pipe
+		python -mjson.tool | pygmentize -l javascript;
+	fi;
+}
+
+function digga() # Run `dig` and display the most useful info
+{
+	dig +nocmd "$1" any +multiline +noall +answer;
+}
+
+function escape() # UTF-8-encode a string of Unicode symbols
+{
+	printf "\\\x%s" $(printf "$@" | xxd -p -c1 -u);
+	# print a newline unless we’re piping the output to another program
+	if [ -t 1 ]; then
+		echo ""; # newline
+	fi;
+}
+
+function unidecode() # Decode \x{ABCD}-style Unicode escape sequences
+{
+	perl -e "binmode(STDOUT, ':utf8'); print \"$@\"";
+	# print a newline unless we’re piping the output to another program
+	if [ -t 1 ]; then
+		echo ""; # newline
+	fi;
+}
+
+function codepoint() # Get a character’s Unicode code point
+{
+	perl -e "use utf8; print sprintf('U+%04X', ord(\"$@\"))";
+	# print a newline unless we’re piping the output to another program
+	if [ -t 1 ]; then
+		echo ""; # newline
+	fi;
+}
+
+# function a() # `a` with no arguments opens the current directory in Atom Editor, otherwise opens the given location
+# {
+# 	if [ $# -eq 0 ]; then
+# 		atom .;
+# 	else
+# 		atom "$@";
+# 	fi;
+# }
+
+# function v() # `v` with no arguments opens the current directory in Vim, otherwise opens the given location
+# {
+# 	if [ $# -eq 0 ]; then
+# 		vim .;
+# 	else
+# 		vim "$@";
+# 	fi;
+# }
+
+function o() #`o` with no arguments opens the current directory, otherwise opens the given location
+{
+	if [ $# -eq 0 ]; then
+		open .;
+	else
+		open "$@";
+	fi;
+}
+
+function grr() # Git: Revert changes & Remove all untracked
+{
+	git reset --hard;
+	git clean -fd;
+}
+
+function gr() # Git: Revert changes in specific file
+{
+	git checkout HEAD $@;
+}
+
+function gacp() # Git: add all, commit and push. [-m "comment"]
+{
+	git add .;
+	git commit $@
+	git push
+}
+
+function dcleanup() # Docker: Removes all unused containers and images
+{
+	docker rm -v $(docker ps --filter status=exited -q 2>/dev/null) 2>/dev/null
+	docker rmi $(docker images --filter dangling=true -q 2>/dev/null) 2>/dev/null
+}
+
+function refreshdns() # Flushes DNS
+{
+	sudo dscacheutil -flushcache
+	sudo killall -HUP mDNSResponder
+}
+
+#Provides explanation for aliases created in another file
+# function dev() # Navigate terminal to dev folder
+# function dth() # Navigate terminal to dotfiles home folder
+# function dl() # Navigate terminal to ~/Downloads
+# function dt() # Navigate terminal to ~/Desktop
+# function g() # Shortcut for git
+# function h() # Shortcut for history
+# function edit-zsh() # Open dotfile zshrc with vim
+# function edit-p10k() # Open dotfile p10k with vim
+# function reload-zsh() # Reloads dotfile zshrc using source command
+# function reload-p10k() # Reloads dotfile p10k using source command
+# function reload-alias() # Reloads dotfile aliases using source command
+# function undo-dotfiles() # Undo all dotfiles changes to latest backup made
+# function admin-shell() # Elevate terminal to root user bash shell (password will be requested twice)

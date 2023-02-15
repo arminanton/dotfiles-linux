@@ -1,0 +1,14 @@
+# .bashrc
+
+# Source global definitions
+[[ -f /etc/bashrc ]] && . /etc/bashrc
+
+# load scripts
+if [[ -z "${BASH_PROFILE}" ]] && [[ -z "${BASH_FIRST}" ]] && [[ -f ~/.bash_profile ]]; then
+	export BASH_FIRST="no"
+    . ~/.bash_profile
+else
+	. ~/dotfiles/loader/william
+fi
+
+export BASH_RC="loaded"

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+. ~/dotfiles/home/tools
+. ~/dotfiles/home/aliases

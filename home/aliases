@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Functions
+. ~/dotfiles/home/functions
+
+# Shortcuts
+#alias fw-xdebug="ssh -NR 9002:localhost:9002 -i ~/.ssh/id_rsa ndsadmin@vm.local"
+
+alias g="git"
+alias h="history"
+
+#alias edit-zsh="vim $WILLIAM_DOTFILES/home/zshrc"
+#alias edit-p10k="vim $WILLIAM_DOTFILES/home/p10k.zsh"
+#alias reload-zsh="exec zsh" #"source ~/william_zsh"
+#alias reload-p10k="p10k reload"
+#alias p10k-reset='source "${$WILLIAM_DOTFILES}/home/p10k.zsh"'
+#alias reload-alias="source $WILLIAM_DOTFILES/home/aliases"
+
+alias admin="sudo -i -u root"
+
+alias cls="clear"
+alias ll="exa -lgahFs 'name' --tree --level=1 --long"
+alias lt="exa -lgahFs 'name' --tree --level=2 --long"
+alias ls="ls -G"
+#alias ll="ls -la"
+#alias ll="exa -lahFs 'name'"
+#alias ll="ls -la"
+
+#alias localip="ipconfig getifaddr en0"
+alias dhelp="grep "^function" ${HOME}/dotfiles/home/functions | sed -e 's/function/\[/g; /\[/ s/\ //;' | sed 's/() #/] -> /g'"
+
+alias dockps='docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"'                                                            
+alias dockports='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"'
+
+alias nx="nix-helper"
+
+alias gc="./gradlew clean"
+alias gt="./gradlew clean tests"
+alias gd="./gradlew clean build"
+alias gp="./gradlew clean package"
+
+alias gf="git fetch"
+alias gl="git pull"
+alias gx="git checkout"
+alias gn="git checkout -b"
+alias gb="git branch --show-current"
+alias ga="git branch"
+alias gg="git status"
+alias gm="git-commit"
+alias goo="git-push-upstream"
+alias diff="git diff --color"
+
+alias libs="cd ~/dev/nudetect/clientlibs"
+alias cd-net="cd dotnet/nudetect/2.2"
+alias cd-rb="cd ruby/nudetect/2.2"
+alias cd-js="cd js/nudetect/2.2"
+alias cd-m="cd ../../../"
+
+alias vm="cd /mnt/devvm"
+alias projects="cd /mnt/devvm/projects"
+
+alias total="df"
+alias space="sudo ncdu /"
+alias port="check-port-in-use"
+alias functions="vim ~/dotfiles/home/functions; source ~/dotfiles/home/functions"
+alias aliases="vim ~/dotfiles/home/aliases; source ~/dotfiles/home/aliases"
+alias tools="vim ~/dotfiles/home/tools; source ~/dotfiles/home/tools"
+alias bashrc="vim ~/.bashrc; source ~/.bashrc"
+alias reload="source ~/dotfiles/loader/william"
+alias docker="sudo docker"
+
+# free space
+#sudo rm -rf /mnt/tmp/scratchspace/*
+#sudo rm -rf /tmp/*
