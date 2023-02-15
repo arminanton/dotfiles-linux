@@ -11,9 +11,16 @@ function dotfile_link() {
     ln -s "${HOME}/dotfiles/home/${1}" "${HOME}/.${1}"
 }
 
-dotfile_link "bashrc"
-dotfile_link "bash_profile"
-dotfile_link "vimrc"
-dotfile_link "bundle"
-dotfile_link "asdfrc"
-dotfile_link "default-gems"
+IFS=" "
+
+function dotfile_loop() {
+    local items
+    items="bashrc bash_profile vimrc bundle asdfrc default-gems oh-my-zsh"
+    items+=" p10k.zsh zsh zshrc"
+
+    for item in $items; do
+        dotfile_link "$item"
+    done
+}
+
+dotfile_loop

@@ -1,0 +1,4 @@
+
+export ZSH_STARTING="true"
+source $HOME/.bash_profile
+
