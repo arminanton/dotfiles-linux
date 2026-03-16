@@ -1,3 +1,16 @@
 /bkp
 /home/bundle
 !/home/bundle/config
+/home/aws/credentials
+/home/aws/sso
+/home/aws/cli
+/home/cargo/registry
+/home/cargo/.crates.toml
+/home/cargo/.crates2.json
+/home/cargo/.global-cache
+/home/cargo/.package-cache
+/home/cargo/.package-cache-mutate
+/home/local/share
+/home/local/lib
+/home/local/state
+__pycache__

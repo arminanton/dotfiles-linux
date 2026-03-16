@@ -1,14 +1,17 @@
 # .bashrc
 
+. "${HOME}/.dotfiles-path"
+
 # load scripts
 if [[ -z "${BASH_FIRST}" ]] && [[ -f ~/.bash_profile ]]; then
 	export BASH_FIRST="no"
-    . ~/.bash_profile
+        . "${HOME}/.bash_profile"
 else
-	. ~/dotfiles/loader/william
+	. "${DOTFILES_PATH}/loader/william"
 	unset BASH_FIRST
 fi
 
 # Source global definitions
 #[[ -f /etc/bashrc ]] && . /etc/bashrc
+
 

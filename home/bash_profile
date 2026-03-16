@@ -1,11 +1,13 @@
 # .bash_profile
 
+. "${HOME}/.dotfiles-path"
+
 # if rc is null, and first is null, load other
 if [[ -z "${BASH_FIRST}" ]] && [[ -f ~/.bashrc ]]; then
 	export BASH_FIRST="no"
-	. ~/.bashrc
+	. "${HOME}/.bashrc"
 else
-	. ~/dotfiles/loader/william
+	. "${DOTFILES_PATH}/loader/william"
 	unset BASH_FIRST
 fi
 

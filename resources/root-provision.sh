@@ -32,7 +32,4 @@ cp -av /vagrant/user-provision.sh /home/ndsadmin/user-provision.sh
 chown ndsadmin: /home/ndsadmin/user-provision.sh
 chmod 775 /home/ndsadmin/user-provision.sh
 
-
-
-
 echo -e "\n\nCompleted custom root provisioning.\n\n"

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+
+function s() 
+{
+    sudo $@;
+}
+
+function sct() 
+{
+    s systemctl $@;
+}
+
+function scts() 
+{
+    sct status $@;
+}
+
+function sctb() 
+{
+    sct start $@;
+}
+
+function sctx() 
+{
+    sct stop $@;
+}
+
+function sctr() 
+{
+    sct restart $@;
+}
+
+function scte() 
+{
+    sct enable $@;
+}
+
+function sctd() 
+{
+    sct disable $@;
+}
+
+function no_output() {
+    $@ >/dev/null 2>&1
+}
+
+var_run="$(scts docker | grep -E 'Active: (failed|inactive)' && no_output sct daemon-reload && no_output sctb docker)"
+

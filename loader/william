@@ -1,4 +1,6 @@
 #!/bin/bash
 
-. ~/dotfiles/home/tools
-. ~/dotfiles/home/aliases
+. "${HOME}/.dotfiles-path"
+. "${DOTFILES_PATH}/home/tools"
+. "${DOTFILES_PATH}/home/aliases"
+

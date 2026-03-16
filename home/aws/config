@@ -1,0 +1,26 @@
+[profile ndsdev]
+region = us-east-1
+sso_start_url = https://sso-nudatasecurity.awsapps.com/start
+sso_region = us-west-2
+sso_account_id = 783962659681
+sso_role_name = NuData-Staging-PowerUser-Access
+
+[profile aiondev]
+region = us-east-1
+sso_start_url = https://sso-nudatasecurity.awsapps.com/start
+sso_region = us-west-2
+sso_account_id = 529177022972
+sso_role_name = NuData-Developer-PowerUserAccess
+
+[profile tcdev]
+region = us-east-1
+sso_start_url = https://sso-nudatasecurity.awsapps.com/start
+sso_region = us-west-2
+sso_account_id = 069183700538
+sso_role_name = NuData-Developer-PowerUserAccess
+
+[profile ndsuat]
+region = us-east-1
+
+[profile ndsprod]
+region = us-east-1

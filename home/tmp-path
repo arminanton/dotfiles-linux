@@ -1,0 +1,1 @@
+/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/root/bin:/root/.asdf/bin:/root/.asdf/shims:/root/node_modules/.bin:/root/yarn/bin/:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/openssl/bin:/root/.local/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/bin:/sbin

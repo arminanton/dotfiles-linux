@@ -1,0 +1,2 @@
+#!/bin/bash
+docker $@ 2>&1 | lolcat -a -d 5 -s 30

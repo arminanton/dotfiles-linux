@@ -1,13 +1,229 @@
 #!/bin/bash
 
-function git-commit() # Git commit allowing to pass two scripts as message (title and description)
+function clean-space() # delete common cache
 {
-    if [[ -n "${1}" ]] && [[ -z "${2}" ]]; then
-        git commit -m "${1}"
+    local paths=(
+        /home/ndsadmin/.local/share/containers
+        /home/ndsadmin/.config/containers
+        # /storage/overlay
+        # /home/ndsadmin/.local/share/containers/storage
+        /var/log
+        /var/lib/containers
+        # /storage/overlay
+        /var/tmp
+        /mnt/geoip
+        /mnt/tmp/scratchspace
+        /tmp
+    )
+
+    for item in "${paths[@]}"; do
+        if [ -d "$item" ]; then
+            sudo find "$item" -mindepth 1 -exec rm -rf {} + 2>/dev/null || true
+        fi
+    done
+
+    podman-prune
+}
+
+function podman-prune() # prune everything related to podman
+{
+    local steps=(
+        "pod rm -f -a"
+        "container prune -f"
+        "volume prune -f"
+        "image prune -a -f"
+        "system prune -a --volumes -f"
+        "rmi -f \$(podman images -q)"
+        "system reset -f"
+    )
+
+    for cmd in "${steps[@]}"; do
+        {
+            sudo podman ${cmd} || true
+            podman ${cmd} || true
+        } >/dev/null 2>&1
+    done
+
+    # De-register all existing QEMU binfmt_misc entries
+    echo "De-registering existing QEMU binfmt_misc entries..."
+
+    setopt +o nomatch   # Temporarily disable nomatch error
+    for entry in /proc/sys/fs/binfmt_misc/qemu-*; do
+        if [[ -f "$entry" ]]; then
+            {
+                echo -1 | sudo tee "$entry" >/dev/null 2>&1
+            } >/dev/null 2>&1
+            echo "Removed: $entry"
+        fi
+    done
+    setopt nomatch      # Re-enable
+
+    # Now run the container
+    echo "Running QEMU registration container..."
+    sudo -i podman run --rm --network=host --privileged \
+        registry.artifactory.intra.nudatasecurity.com/multiarch/qemu-user-static \
+        --reset --credential yes --persistent yes
+}
+
+function gitconfig_to_json() # pass changes from one to another
+{
+  local infile="${1:-$HOME/.gitconfig}"
+  local outfile="${2:-$HOME/.repo_.gitconfig.json}"
+
+  awk '
+  function escape(str) {
+    gsub(/\\/, "\\\\", str)
+    gsub(/"/, "\\\"", str)
+    return str
+  }
+
+  BEGIN {
+    print "{"
+  }
+
+  /^\s*\[.*\]\s*$/ {
+    match($0, /^\s*\[([a-zA-Z0-9._-]+)(\s+"([^"]+)")?\]/, m)
+    section = m[1]
+    subsection = m[3]
+    next
+  }
+
+  /^[[:space:]]*[a-zA-Z0-9._-]+[[:space:]]*=/ {
+    split($0, kv, "=")
+    key = kv[1]
+    value = substr($0, index($0, "=") + 1)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+
+    full_key = section
+    if (subsection != "")
+      full_key = full_key "." subsection
+    full_key = full_key "." key
+
+    escaped_key = escape(full_key)
+    escaped_val = escape(value)
+
+    if (seen[escaped_key]++) {
+      vals[escaped_key] = vals[escaped_key] ", \"" escaped_val "\""
+    } else {
+      keys[++n] = escaped_key
+      vals[escaped_key] = "\"" escaped_val "\""
+    }
+  }
+
+  END {
+    for (i = 1; i <= n; ++i) {
+      k = keys[i]
+      printf "  \"%s\": [%s]", k, vals[k]
+      if (i < n) print ","
+      else print ""
+    }
+    print "}"
+  }
+  ' "$infile" > "$outfile"
+
+  echo "Converted $infile → $outfile"
+}
+
+function git-owner() # set owner name and email
+{
+    local name="${GIT_USERNAME}"
+    local email="${GIT_USEREMAIL}"
+
+    if [[ -n "${string}" ]]; then
+        echo "string is not empty"
     fi
 
-    if [[ -n "${1}" ]] && [[ -n "${2}" ]]; then
-        git commit -m "${1}" -m "${2}"
+
+    if [[ -n "${1}" ]]; then
+        name="${1}"
+        echo "export GIT_USERNAME=\"${name}\"" | sudo tee /etc/profile.d/user.sh > /dev/null
+    fi
+
+    if [[ -n "${2}" ]]; then
+        email="${2}"
+        echo "export GIT_USEREMAIL=\"${email}\""| sudo tee -a /etc/profile.d/user.sh > /dev/null
+        source /etc/profile.d/user.sh
+    fi
+
+    if [[ -n "${name}" ]] && [[ -n "${email}" ]]; then
+        git config --global user.name "${name}"
+        git config --global user.email "${email}"
+        gitconfig_to_json
+    fi
+}
+
+function aws-cc() # aws code commit repo clone
+{
+    git clone https://git-codecommit.us-east-1.amazonaws.com/v1/repos/${@}
+}
+
+function gh-clone() # gh cli repo clone
+{
+    gh repo clone ghe.intra.nudatasecurity.com/${@}
+}
+
+function set-profile() # set default aws profile
+{
+    if [[ -n "${1}" ]]; then
+        export AWS_PROFILE=${1}
+        export AWS_DEFAULT_PROFILE=${1}
+    fi
+}
+
+function set-region() # set default aws region
+{
+    if [[ -n "${1}" ]]; then
+        export AWS_REGION=${1}
+        export AWS_DEFAULT_REGION=${1}
+    fi
+}
+
+function git-commit() # Git commit allowing to pass two scripts as message (title and description)
+{
+    total="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    if [[ -n "${1}" ]]; then
+        if [[ ${#1} -le ${#total} ]]; then
+            if [[ -n "${2}" ]]; then
+                if [[ ${#2} -le ${#total} ]]; then
+                    git commit -m "${1}" -m "${2}"
+                    export GIT_COMMIT_SAVE="worked"
+                else
+                    echo "!!! [second string is longer then 72 chars]"
+                    export GIT_COMMIT_SAVE="failed"
+                fi
+            else
+                git commit -m "${1}"
+                export GIT_COMMIT_SAVE="worked"
+            fi
+        else
+            echo "!!! [first string is longer then 72 chars]"
+            export GIT_COMMIT_SAVE="failed"
+        fi
+    fi
+}
+
+function git-commit-amend() # Git commit amend allowing to pass two scripts as message (title and description)
+{
+    total="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    if [[ -n "${1}" ]]; then
+        if [[ ${#1} -le ${#total} ]]; then
+            if [[ -n "${2}" ]]; then
+                if [[ ${#2} -le ${#total} ]]; then
+                    git commit --amend -m "${1}" -m "${2}"
+                    export GIT_COMMIT_SAVE="worked"
+                else
+                    echo "!!! [second string is longer then 72 chars]"
+                    export GIT_COMMIT_SAVE="failed"
+                fi
+            else
+                git commit --amend -m "${1}"
+                export GIT_COMMIT_SAVE="worked"
+            fi
+        else
+            echo "[first string is longer then 72 chars]"
+            export GIT_COMMIT_SAVE="failed"
+        fi
     fi
 }
 
@@ -15,17 +231,427 @@ function git-push-upstream() # Git push with upstream for new feature branches
 {
     local branch_name
     branch_name="$(gb)"
-    git push --set-upstream origin $branch_name
+    echo ""
+    git push origin $branch_name $@
+}
+
+function git-add-commit-push() # git add, status, commit, and push, in sequence
+{
+    git add .
+    git status
+    git-commit $@
+    if [[ "${GIT_COMMIT_SAVE}" == "worked" ]]; then
+        git-push-upstream
+    fi
+}
+
+function git-add-commit-push-pr-create() # git add, status, commit, push, and create pr in GHE, in sequence
+{
+    git add .
+    git status
+    git-commit $@
+    if [[ "${GIT_COMMIT_SAVE}" == "worked" ]]; then
+        git-push-upstream
+        gh-pr-create $1
+    fi
+}
+
+function gh-pr-create() # gh cli pr create in GHE
+{
+    local feature_branch
+    local target_branch
+    feature_branch="$(gb)"
+    if [[ -n "$(git ls-remote --heads origin cdk-master)" ]]; then
+        target_branch="cdk-master"
+    else
+        target_branch="$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)"
+    fi
+    template_content=$(curl -H "Authorization: Bearer GHE_Token" https://raw.ghe.intra.nudatasecurity.com/intelligence-services/.github/master/.github/PULL_REQUEST_TEMPLATE.md)
+    gh pr create --base $target_branch --head $feature_branch --title $1 --body "$template_content" --assignee @me --fill
+}
+
+function git-add-amend-force-push() # git add, amend, and force push, in sequence
+{
+    git add .
+    git status
+    git-commit-amend $@
+    if [[ "${GIT_COMMIT_SAVE}" == "worked" ]]; then
+        git-push-upstream
+    fi
+}
+
+# simpler version without task error/crashing handler
+#function ecs-ssh() # connect to a container within a task in AWS ECS
+#{
+#    echo "Please enter the task name/id: "
+#    read task
+#    aws ecs execute-command --cluster ${1}-infra --task ${task} --container ${2} --command "/bin/bash" --interactive --profile ${AWS_PROFILE} --region us-east-1
+#}
+
+function ecs-container-status() # check if a container is running within a task in AWS ECS
+{
+    local cluster_name=$1
+    local task_id=$2
+    local container_name=$3
+
+    if [[ -n "$cluster_name" && -n "$task_id" && -n $container_name ]]; then
+        while true; do
+            # Check the status of the container
+            # echo "[${cluster_name}] [${container_name}] [${task_id}]"
+            local container_status="$(aws ecs describe-tasks --cluster "$cluster_name" --tasks "$task_id" --query "tasks[0].containers[?name=='$container_name'].lastStatus" --output text --profile ${AWS_PROFILE} --region us-east-1 2>&1 || true)"
+
+            # If the container is not running, kill the execute-command process and exit the script
+            if [[ "$container_status" != "RUNNING" ]]; then
+                echo "Container is not running. Stopping the execute-command process."
+                pkill -P $$ # Kill all child processes of this script
+                exit 1
+            fi
+            sleep 10
+        done
+    else
+        echo "ECS SSH Variables are not defined or empty"
+        pkill -P $$ # Kill all child processes of this script
+    fi
+}
+
+function ecs-ssh() # connect to a container within a task in AWS ECS
+{
+    echo "Please enter the task name/id: "
+    read task_id
+
+    # Set your ECS parameters
+    local cluster_name="${1}-infra"
+    local container_name="${2:-$1}"
+    local command="/bin/bash"
+
+    # Run the ecs-container-status function in the background
+    ecs-container-status "$cluster_name" "$task_id" "$container_name" &
+
+    # Start the AWS ECS execute-command in the foreground for interactive shell access
+    aws ecs execute-command --cluster "$cluster_name" --task "$task_id" --container "$container_name" --command "$command" --interactive --profile ${AWS_PROFILE} --region us-east-1
+
+    # Cleanup: Kill the ecs-container-status background process
+    pkill -P $$ # Kill all child processes of this script
+}
+
+function ecs-taskset-undo() # undo a the most recent task-set
+{
+    taskset="$(ecs-taskset-recent ${1})"
+    aws ecs update-task-set --cluster ${1}-infra --service ${1}-infra --task-set ${taskset} --scale value=0,unit=PERCENT --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-taskset-scaledown() # scale down taskset
+{
+    echo "Please enter the taskset id: "
+    read taskset
+    aws ecs update-task-set --cluster ${1}-infra --service ${1}-infra --task-set ${taskset} --scale value=0,unit=PERCENT --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-taskset-scaleup() # scale up taskset
+{
+    echo "Please enter the taskset id: "
+    read taskset
+    aws ecs update-task-set --cluster ${1}-infra --service ${1}-infra --task-set ${taskset} --scale value=100,unit=PERCENT --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-taskset-inactive() # inactivate a taskset
+{
+    echo "Please enter the taskset id: "
+    read taskset
+    aws ecs update-service --cluster ${1}-infra --service ${1}-infra --task-sets "taskSetId=${taskset},status=INACTIVE" --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-taskset-delete() # delete taskset
+{
+    echo "Please enter the taskset id: "
+    read taskset
+    aws ecs delete-task-set --force --cluster ${1}-infra --service ${1}-infra --task-set ${taskset} --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-taskset() # display list of tasksets
+{
+    aws ecs describe-services --cluster ${1}-infra --services ${1}-infra --profile ${AWS_PROFILE} --region us-east-1 --query "services[0].taskSets"
+}
+
+function ecs-taskset-create() # create a new taskset passing a taskdefition
+{
+    echo "Please enter the taskdef: "
+    read taskdef
+    aws ecs create-task-set --cluster ${1}-infra --service ${1}-infra --task-definition ${taskdef} --scale value=100,unit=PERCENT --profile ${AWS_PROFILE} --region us-east-1
+    taskset="$(ecs-taskset-recent ${1})"
+    aws ecs update-service-primary-task-set --cluster ${1}-infra --service ${1}-infra --primary-task-set ${taskset} --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-taskset-recent() # display the most recent taskset
+{
+    echo "$(aws ecs describe-services --cluster ${1}-infra --services ${1}-infra --output text --profile ${AWS_PROFILE} --region us-east-1 --query "services[0].taskSets | sort_by(@, &createdAt)[-1].id")"
+}
+
+function ecs-desired-count() # update desired count of a service
+{
+    aws ecs update-service --cluster ${1}-infra --service ${1}-infra --desired-count ${2} --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-taskset-update() # undo a the most recent task-set
+{
+    echo "Please enter the taskset id: "
+    read taskset
+    aws ecs update-task-set --cluster ${1}-infra --service ${1}-infra --task-set ${taskset} --scale value=${2},unit=PERCENT --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-stop-update() # stop ongoing deployment
+{
+    aws cloudformation cancel-update-stack --stack-name ${1}-ecs --profile ${AWS_PROFILE} --region us-east-1
+    aws cloudformation cancel-update-stack --stack-name ${1}-infra --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-stack-delete() # deletes the whole stack, stackName must include -ecs or -infra.
+{
+    aws cloudformation delete-stack --stack-name ${1} --profile ${AWS_PROFILE} --region us-east-1
+}
+
+function ecs-service-delete() # deletes the service
+{
+    aws ecs delete-service --force --cluster ${1}-infra --service ${1}-infra --profile ${AWS_PROFILE} --region us-east-1
+}
+
+remove_containers() {
+    containers=$(sudo ctr containers ls | awk 'NR>1 {print $1}')
+    for container in $containers; do
+        sudo ctr container rm $container
+    done
+}
+
+remove_images() {
+    images=$(sudo ctr images ls | awk 'NR>1 {print $1}')
+    for image in $images; do
+        sudo ctr image rm $image
+    done
+}
+
+remove_snapshots() {
+    snapshots=$(sudo ctr snapshots ls | awk 'NR>1 {print $1}')
+    for snapshot in $snapshots; do
+        sudo ctr snapshot rm $snapshot
+    done
+}
+
+remove_content() {
+    content=$(sudo ctr content ls | awk 'NR>1 {print $1}')
+    for item in $content; do
+        sudo ctr content rm $item
+    done
+}
+
+function docker-clean()
+{
+    set -x
+
+    sudo docker system prune -a --volumes -f
+
+    # Remove containers, images, snapshots, and content with retries
+    for i in {1..10}; do
+        remove_containers
+        remove_images
+        remove_snapshots
+        remove_content
+    done
+
+    # Forcefully prune snapshots (if any remaining)
+    sudo ctr snapshots prune
+
+    # Remove dangling Docker volumes
+    sudo sh -c 'docker volume ls -qf dangling=true | xargs -r docker volume rm'
+    sudo docker system df
+
+    sudo yum clean all
+    sudo journalctl --vacuum-time=7d
+
+    sudo df -h
+    sudo du -sh /var/* | sort -h
+    sudo du -sh /var/lib/* | sort -h
+    sudo du -sh /var/lib/containerd/* | sort -h
+    sudo du -h --max-depth=1 /var/lib/containerd
+    sudo du -sh /var/log/* | sort -h
+
+    sudo systemctl status docker
+    sudo systemctl status containerd
+
+    docker --version
+    docker info
+}
+
+function docker-recursive() # build image by layers
+{
+    local repo="${1:-scratch}"
+    local file="${repo}.Dockerfile"
+    local stage_last="${2}"
+    local params="${3}"
+
+    set -o pipefail
+
+    local stop=""
+
+    # Declare an array to store file lines manually
+    declare -a lines
+    while IFS= read -r line; do
+        lines+=("$line")  # Append each line to the array
+    done < "$file"
+
+    # Iterate over the manually built array
+    for line in "${lines[@]}"; do
+        # Check if the line contains a FROM statement with AS
+        if [[ "$line" =~ ^FROM[[:space:]].*[[:space:]]AS[[:space:]] ]]; then
+            # Extract the stage name after AS
+            stage_name=$(echo "$line" | awk '{for(i=1;i<=NF;i++) if($i=="AS") print $(i+1)}')
+
+            if [[ -z "${stop}" ]]; then
+                echo "
+
+[next] repo: [${repo}] | stage: [${stage_name}] | stop_after: [${stage_last}]"
+
+                # Ensure user input works interactively
+                echo -e "Press Enter to continue..."
+                read </dev/tty
+
+                if [[ "${stage_name}" == "${stage_last}" ]] && [[ -n "${3}" ]]; then
+                    echo "params: [${params}]"
+                    docker-build "${repo}" "${stage_name}" "${params}"
+                else
+                    docker-build "${repo}" "${stage_name}"
+                fi
+            fi
+
+            if [[ "${stage_name}" == "${stage_last}" ]]; then
+                stop="stop-next"
+            fi
+        fi
+    done
+    echo "[completed]"
+}
+
+function docker-build() # builds using docker
+{
+    local repo="${1:-scratch}"
+    local file="docker/images/${repo}/Dockerfile"
+    # local file="${repo}.Dockerfile"
+    local version="${2:-dev}"
+    local params=($3)
+    local target=()
+
+    if [[ "${version}" != "dev" ]]; then
+        target=(--target "${version}")
+    fi
+
+    set -x
+    docker build --progress=plain --network=host "${target[@]}" "${params[@]}" -t "${repo}:${version}" -f "${file}" ./docker/images/${repo}/.
+
+    # Ensure build completion before returning
+    wait
+}
+
+function docker-run() # builds using docker
+{
+    local repo="${1:-scratch}"
+    local version="${2:-dev}"
+    local user="${3:-root}"
+    set -x
+
+    docker run -it --rm --network=host --entrypoint "/bin/bash" --user "${user}" "${repo}:${version}"
+}
+
+function podman-build() # build image
+{
+    local app="${1:-ndsessionms}"
+    local image="${2}"
+    if [[ "${image}" == "nginx" ]]; then
+        podman build --no-cache -t ${app}-nginx:test-version-1 configs/nginx/.
+        podman run --name nginx -p 8443:8443 -d ${app}-nginx:test-version-1
+    fi
+    if [[ "${image}" == "fpm" ]]; then
+        podman build --no-cache -t ${app}:test-version-1 -f Dockerfile .
+        podman run --name fpm -p 9091:9091 -d ${app}:test-version-1
+    fi
+    echo "build completed and container is running!"
+}
+
+function podman-remove() # stop container and remove image
+{
+    local image="${1}"
+    podman stop ${image}
+    podman rm ${image}
+    echo "container stopped and removed!"
+}
+
+function podman-reload() # reload the whole process
+{
+    local app="${1:-ndsessionms}"
+    local image="${2}"
+    echo -e "\n--> Stopping and removing existing container..."
+    podman-remove "${image}"
+    echo -e "\n--> Building a new image and starting a new container..."
+    podman-build "${app}" "${image}"
+    echo -e "\n--> Reload completed! includes: container stop/remove, image re-build, new container start."
+    echo -e "\n--> Startup logs:"
+    podman-logs "${image}"
+    echo -e "\n--> Launching container shell:"
+    podman-ssh "${image}"
+}
+
+function podman-logs() # pring logs of the container
+{
+    local image="${1}"
+    podman logs $image
+}
+
+function podman-ssh() # access a container
+{
+    #local image="${1}"
+    podman exec -it $@ /bin/bash
+}
+
+function math() # perform math using bash
+{
+    echo $(($@))
 }
 
 function search-port-pid() # Find which process is using said port
 {
-    sudo netstat -tulpn | grep '5001'
-    if [[ -n "${1}" ]]; then
-        sudo netstat -tulpn | grep "${1}"
+    if [[ -n "${1}" ]] && [[ -n "${2}" ]]; then
+        sudo lsof -nP -iTCP -sTCP:LISTEN | grep ":${2}"
+    elif [[ -n "${1}" ]]; then
+        sudo netstat -tulpn | grep ":${1}"
     else
         sudo netstat -tulpn
     fi
+}
+
+switch-java() # change java version
+{
+  local version="$1"
+  local apps=(java javac jar)
+
+  case "$version" in
+    8)   version="1.8.0" ;;
+    11)  ;;
+    17)  ;;
+    21)  ;;
+    23)  ;;
+    *) echo "Usage: switch-java {8|11|17|21|23}"; return 1 ;;
+  esac
+
+  local base_path="/usr/lib/jvm/java-${version}-openjdk"
+
+  for app in "${apps[@]}"; do
+    local cmds=$(sudo alternatives --set ${app} ${base_path}/bin/${app} 2>&1)
+    sudo rm -rf /etc/alternatives/${app} /usr/bin/${app}
+    sudo ln -s ${base_path}/bin/${app} /etc/alternatives/${app}
+    sudo ln -s /etc/alternatives/${app} /usr/bin/${app}
+  done
+
+  export JAVA_HOME="$base_path"
+  echo "Switched to Java $ver → JAVA_HOME=$JAVA_HOME"
+  java -version
 }
 
 function fwd-port() # Forward port From and To
@@ -43,18 +669,75 @@ function check-port-in-use() # Check if port is in use
     fi
 }
 
-function read_file() # Safer way to read file contents
+function path-list() # Prints each path one per line
 {
-    local file_content
-
-    IFS=''
-
-    read -d '' -r file_content <"${1}"
-
-    printf '%s' "${file_content}"
-
-    IFS=' '
+    echo "$PATH" | tr ':' '\n'
 }
+
+function run-with-title() # runs any command with a title in it
+{
+    # Command to execute
+    local command=("${@:2}")
+
+    # Save current screen and cursor settings
+    tput smcup
+    tput civis
+
+    # Setup a trap to restore screen settings on exit and clear the screen
+    trap 'cleanup_and_exit' INT TERM EXIT
+
+    # Function to restore terminal state and exit cleanly
+    cleanup_and_exit() {
+        tput rmcup  # Restore the screen
+        tput cnorm  # Show cursor
+        clear       # Clear the terminal screen
+        stty echo   # Ensure echo is enabled
+        echo "Exited cleanly"
+        # Kill the background job without affecting the parent shell
+        [[ -n "$background_pid" ]] && cmd_exec="$(kill $background_pid 2>&1 >/dev/null)"
+        # Reset trap to default and exit script without exiting the parent shell
+        trap - INT TERM EXIT
+        return 0  # Return instead of exit to avoid closing the shell
+    }
+
+    # Print the title
+    echo -e "\e[1;33m$1\e[0m"
+
+    # Create a buffer to hold the last 60 lines of output
+    local buffer=()
+    local buffer_size=60
+    local line_count=0
+
+    # Execute the command, capture both stdout and stderr, and run it in the background
+    "${command[@]}" 2>&1 | while IFS= read -r line; do
+        buffer+=("$line")
+        ((line_count++))
+
+        # Clear the screen below the title and reprint the buffer
+        tput cup 1 0
+        tput ed  # Clear everything below the current line
+
+        if ((line_count > buffer_size)); then
+            # Only keep the last buffer_size lines
+            buffer=("${buffer[@]: -buffer_size}")
+        fi
+
+        for buffer_line in "${buffer[@]}"; do
+            echo "$buffer_line"
+        done
+
+        # Move back to the first line and print the title again
+        tput cup 0 0
+        echo -e "\e[1;33m$1\e[0m"
+    done &
+
+    # Save the background process PID
+    background_pid=$!
+    wait "$background_pid"  # Wait for the background job to finish
+
+    cleanup_and_exit  # Ensure cleanup if the command finishes normally
+}
+
 
 export NIX_NAME="nix"
 export NIX_OPEN="${NIX_NAME}OPEN"
@@ -66,7 +749,7 @@ function nix-helper() # Nix command-line helper
     if [[ -n "${1}" ]]; then
         case $1 in
         list | -l | l) # ************************************ List installed packages
-            nix-env -q
+            echo "$(nix-env -q 2>&1)"
             ;;
 
         update | upgrade | -u | u) # ************************ Update all packages or a specific one
@@ -78,7 +761,8 @@ function nix-helper() # Nix command-line helper
             ;;
 
         install | -i | i) # ********************************* Install a new package by its name
-            nix-env -iA nixpkgs.$2
+            #nix-env -iA nixpkgs.$2
+            nix-env -f /home/ndsadmin/.nix-pkgs -iA $2
             ;;
 
         erase | delete | remove | uninstall | -r | r) # ***** Delete an installed package
@@ -86,7 +770,7 @@ function nix-helper() # Nix command-line helper
             ;;
 
         backup | generations | -b | b) # ******************** List all backup generations
-            nix-env --list-generations
+            echo "$(nix-env --list-generations)"
             ;;
 
         restore | recover | goback | undo | -z | z) # ******* Rollback to last backup or to specific one
@@ -111,13 +795,14 @@ function nix-menu() # Nix help menu
 {
             hash_symbol="#"
             echo -e "\nNix Package Manager\n"
-            sed -n "/${NIX_OPEN}/,/${NIX_CLOSE}/p" "${HOME}/dotfiles/home/functions" | grep ".)\ #" |
+            sed -n "/${NIX_OPEN}/,/${NIX_CLOSE}/p" "${DOTFILES_PATH}/home/functions" | grep ".)\ #" |
                     sed "s/${hash_symbol}//" |
                     sed -r 's/([a-z])\)/\1/' |
                     sed 's/^ *//g' |
                     sed 's/\*/ /g' |
                     awk '{print $0,"\n"}'
 }
+
 
 #######################################
 # Login to AWS and setup credentials
@@ -127,9 +812,10 @@ function nix-menu() # Nix help menu
 # Returns:
 #   Nothing
 #######################################
-function aws_login {
+function aws_login() # Initiates the AWS SSO login steps and updates keys for AWS cli
+{
     AWS_PROFILE=${1}
-    AWS_PROFILE=${AWS_PROFILE:='lpstg'}
+    AWS_PROFILE=${AWS_PROFILE:='ndsdev'}
     AWS_REGION=${2}
     AWS_REGION=${AWS_REGION:='us-east-1'}
 
@@ -149,7 +835,8 @@ function aws_login {
 # Returns:
 #   Nothing
 #######################################
-function aws_setup_credentials {
+function aws_setup_credentials() # Obtains the proper AWS credentials and access keys and sets it under a defined profile
+{
     local role
     local id
     local sso_region
@@ -218,14 +905,6 @@ function aws_setup_credentials {
         json_parse_value "${credentials}" "sessionToken"
     )"
 
-    local execute
-    execute="$(
-        aws configure set aws_access_key_id "${access_key}" --profile "${AWS_PROFILE}" 2>&1
-        aws configure set aws_secret_access_key "${secret_access_key}" --profile "${AWS_PROFILE}" 2>&1
-        aws configure set aws_session_token "${session_token}" --profile "${AWS_PROFILE}" 2>&1
-        aws configure set region "${AWS_REGION}" --profile "${AWS_PROFILE}" 2>&1
-    )"
-
     log+="$(
             printf "\n%s\n%s\n%s\n%s\n\n%s\n%s\n" \
                 "Then, found these:" \
@@ -240,6 +919,21 @@ function aws_setup_credentials {
         echo -e "${log}"
         exit 1
     fi
+
+    local execute
+    execute="$(
+        aws configure set aws_access_key_id "${access_key}" --profile "${AWS_PROFILE}" 2>&1
+        aws configure set aws_secret_access_key "${secret_access_key}" --profile "${AWS_PROFILE}" 2>&1
+        aws configure set aws_session_token "${session_token}" --profile "${AWS_PROFILE}" 2>&1
+        aws configure set region "${AWS_REGION}" --profile "${AWS_PROFILE}" 2>&1
+    )"
+
+    export AWS_ACCESS_KEY_ID="${access_key}"
+    export AWS_SECRET_ACCESS_KEY="${secret_access_key}"
+    export AWS_SESSION_TOKEN="${session_token}"
+
+    echo ""
+    aws configure list --profile ${AWS_PROFILE}
 }
 
 #######################################
@@ -250,7 +944,8 @@ function aws_setup_credentials {
 # Returns:
 #   Value assigned to that key
 #######################################
-function aws_config_value {
+function aws_config_value() # Retrives the value of said key out from AWS config file in ~/.aws/config
+{
     local key
     local value
 
@@ -276,7 +971,8 @@ function aws_config_value {
 # Returns:
 #   Nothing
 #######################################
-function aws_sso_token {
+function aws_sso_token() # Retrieves the AWS SSO token out of the cached logged user files
+{
     local cache_files
     local key
 
@@ -289,14 +985,15 @@ function aws_sso_token {
         key=""
     else
         IFS=$'\n' # split by new line
-        for file in $cache_files; do
-            if [[ -e "${file}" ]]; then
+        for file in $(find ~/.aws/sso/cache/*.json | awk '!/botocore/' 2>&1); do
+            if test $file; then
                 IFS=' '  # split by space
                 key="$(
                     json_parse_value "$(
                         read_file "${file}"
                     )" "accessToken"
                 )"
+                #echo $key
 
                 if [[ -n "${key}" ]]; then
                     break
@@ -318,7 +1015,8 @@ function aws_sso_token {
 # Returns:
 #   Value of the key provided
 #######################################
-function json_parse_value {
+function json_parse_value() # Parse the value of a key from a json string
+{
     local json
     local key
     local value
@@ -326,6 +1024,7 @@ function json_parse_value {
     if [[ -n "${1}" ]] && [[ -n "${2}" ]]; then
         json="${1}"
         key="${2}"
+
         value="$(
             echo -e "${json}" |
                 grep -o "\"${key}\": \"[^\"]*" |
@@ -343,7 +1042,8 @@ function json_parse_value {
 # Returns:
 #   Prints the file content
 #######################################
-function read_file {
+function read_file() # Reads a file using a safer method than cat and echo
+{
     local filepath
 
     IFS=''
@@ -363,7 +1063,8 @@ alias aws-login="aws_login"
 # Returns:
 #   Nothing
 #######################################
-function update_env() {
+function update_env() # Update AWS Keys for EDC project under ~/dev/edc-api-server
+{
     sed -i'' -e "/AWS_ACCESS/d" "${HOME}/dev/edc-api-server/.env" &> /dev/null
     sed -i'' -e "/AWS_SECRET/d" "${HOME}/dev/edc-api-server/.env" &> /dev/null
 
@@ -386,6 +1087,11 @@ alias update-env="update_env"
 function mkd() # Create a new directory and enter it
 {
 	mkdir -p "$@" && cd "$_";
+}
+
+function smkd() # (sudo) Create a new directory and enter it
+{
+        sudo mkdir -p "$@" && sudo cd "$_";
 }
 
 function cdf() # Change working directory to the top-most Finder window location
@@ -434,7 +1140,7 @@ function gz() # Compare original and gzipped file size
 	printf "gzip: %d bytes (%2.2f%%)\n" "$gzipsize" "$ratio";
 }
 
-function json() # Usage: `json '{"foo":42}'` or `echo '{"foo":42}' | json`
+function json() # Pretty-Print JSON files. Usage: `json '{"foo":42}'` or `echo '{"foo":42}' | json`
 {
 	if [ -t 0 ]; then # argument
 		python -mjson.tool <<< "$*" | pygmentize -l javascript;
@@ -530,6 +1236,50 @@ function refreshdns() # Flushes DNS
 {
 	sudo dscacheutil -flushcache
 	sudo killall -HUP mDNSResponder
+}
+
+function s()
+{
+    sudo $@;
+}
+
+function sct()
+{
+    s systemctl $@;
+}
+
+function scts()
+{
+    sct status $@;
+}
+
+function sctb()
+{
+    sct start $@;
+}
+
+function sctx()
+{
+    sct stop $@;
+}
+
+function sctr()
+{
+    sct restart $@;
+}
+
+function scte()
+{
+    sct enable $@;
+}
+
+function sctd()
+{
+    sct disable $@;
+}
+
+function no_output() {
+    $@ >/dev/null 2>&1
 }
 
 #Provides explanation for aliases created in another file

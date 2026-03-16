@@ -1,0 +1,4 @@
+#!/bin/bash
+source "${HOME}/.dotfiles-path"
+source "${DOTFILES_PATH}/loader/william"
+nix-helper $@

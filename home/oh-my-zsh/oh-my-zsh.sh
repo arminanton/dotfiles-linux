@@ -65,7 +65,9 @@ source "$ZSH/tools/check_for_upgrade.sh"
 fpath=("$ZSH/functions" "$ZSH/completions" $fpath)
 
 # Load all stock functions (from $fpath files) called below.
-autoload -U compaudit compinit zrecompile
+# compaudit
+autoload -U compinit zrecompile
+alias compaudit="echo -n '';"
 
 # Set ZSH_CUSTOM to the path where your custom config files
 # and plugins exists, or else we will use the default custom/
@@ -116,6 +118,7 @@ if ! command grep -q -Fx "$zcompdump_revision" "$ZSH_COMPDUMP" 2>/dev/null \
   zcompdump_refresh=1
 fi
 
+export ZSH_DISABLE_COMPFIX=true
 if [[ "$ZSH_DISABLE_COMPFIX" != true ]]; then
   source "$ZSH/lib/compfix.zsh"
   # Load only from secure directories

@@ -180,7 +180,7 @@ function _omz_diag_dump_one_big_text() {
   builtin zstyle
   builtin echo
   builtin echo 'compaudit output:'
-  compaudit
+  #compaudit
   builtin echo 
   builtin echo '$fpath directories:'
   command ls -lad $fpath

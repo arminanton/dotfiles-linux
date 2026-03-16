@@ -1,0 +1,5 @@
+#!/bin/bash
+run-with-title $@
+
+# Make sure to reset terminal settings if the script exits prematurely
+trap 'tput cnorm; clear' EXIT

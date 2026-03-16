@@ -1,0 +1,49 @@
+#!/bin/bash
+
+
+function s() 
+{
+    sudo $@;
+}
+
+function sct() 
+{
+    s systemctl $@;
+}
+
+function scts() 
+{
+    sct status $@;
+}
+
+function sctb() 
+{
+    sct start $@;
+}
+
+function sctx() 
+{
+    sct stop $@;
+}
+
+function sctr() 
+{
+    sct restart $@;
+}
+
+function scte() 
+{
+    sct enable $@;
+}
+
+function sctd() 
+{
+    sct disable $@;
+}
+
+function no_output() {
+    $@ >/dev/null 2>&1
+}
+
+var_run="$(scts nginx | grep -E 'Active: (failed|inactive)' && no_output sctx php-fpm && no_output sctr nginx && sleep 10 && no_output sctb php-fpm)"
+

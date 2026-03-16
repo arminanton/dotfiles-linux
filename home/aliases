@@ -1,10 +1,13 @@
 #!/bin/bash
 
 # Functions
-. ~/dotfiles/home/functions
+. "${DOTFILES_PATH}/home/functions"
 
 # Shortcuts
 #alias fw-xdebug="ssh -NR 9002:localhost:9002 -i ~/.ssh/id_rsa ndsadmin@vm.local"
+
+alias sudo="sudo "
+alias s="sudo "
 
 alias g="git"
 alias h="history"
@@ -19,20 +22,43 @@ alias h="history"
 alias admin="sudo -i -u root"
 
 alias cls="clear"
-alias ll="exa -lgahFs 'name' --tree --level=1 --long"
-alias lt="exa -lgahFs 'name' --tree --level=2 --long"
+# alias l="exa -lghFs 'name' --tree --level=1 --long"
+# alias ll="exa -lgahFs 'name' --tree --level=1 --long"
+# alias lt="exa -lgahFs 'name' --tree --level=2 --long"
+alias l='eza -la --git'
+alias ll='eza -lgaT --git --level=1'
+alias lt='eza -lgaT --git --level=2'
+# alias l='eza -la --git --icons'
+# alias ll='eza -lgaT --git --icons --level=1'
+# alias lt='eza -lgaT --git --icons --level=2'
 alias ls="ls -G"
 #alias ll="ls -la"
 #alias ll="exa -lahFs 'name'"
 #alias ll="ls -la"
+alias sl="s ll"
+
+alias smk="s mkdir"
+alias smkd="smkd"
+alias sln="s ln -s"
+alias sct="s cat"
+alias sv="s vim"
+alias schw="s chown"
+alias schwr="s chown -Rf"
+# alias sct="s systemctl "
+# alias scts="s systemctl status"
+# alias sctb="s systemctl start"
+# alias sctx="s systemctl stop"
+# alias sctr="s systemctl restart"
+# alias scte="s systemctl enable"
+# alias sctd="s systemctl disable"
 
 #alias localip="ipconfig getifaddr en0"
-alias dhelp="grep "^function" ${HOME}/dotfiles/home/functions | sed -e 's/function/\[/g; /\[/ s/\ //;' | sed 's/() #/] -> /g'"
+alias dhelp="grep \"^function\" ${DOTFILES_PATH}/home/functions | sed -e 's/function/\[/g; /\[/ s/\ //;' | sed 's/() #/] -> /g'"
 
-alias dockps='docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"'                                                            
+alias dockps='docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"'
 alias dockports='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"'
 
-alias nx="nix-helper"
+#alias nx="nix-helper"
 
 alias gc="./gradlew clean"
 alias gt="./gradlew clean tests"
@@ -41,34 +67,67 @@ alias gp="./gradlew clean package"
 
 alias gf="git fetch"
 alias gl="git pull"
+alias gfp="git fetch; git pull"
 alias gx="git checkout"
 alias gn="git checkout -b"
 alias gb="git branch --show-current"
 alias ga="git branch"
+alias gaa="git add .; git status"
 alias gg="git status"
 alias gm="git-commit"
+alias ggm="gaa; gm"
 alias goo="git-push-upstream"
 alias diff="git diff --color"
+alias ggdiff="git diff --color-words"
+alias gdiff="git diff --color"
+alias ghc="gh repo clone"
+alias gmo="git-add-commit-push"
+alias gfmp="git-add-amend-force-push"
+alias ghrc="gh-clone"
+alias ghpr="gh-pr-create"
+alias gmopr="git-add-commit-push-pr-create"
+
+alias dkb="docker-build"
+alias dkr="docker-run"
+alias dkbr="docker-recursive"
+
+alias pdb="podman-build"
+alias pdx="podman-remove"
+alias pdr="podman-reload"
+alias pdl="podman-logs"
+alias pds="podman-ssh"
 
 alias libs="cd ~/dev/nudetect/clientlibs"
 alias cd-net="cd dotnet/nudetect/2.2"
 alias cd-rb="cd ruby/nudetect/2.2"
 alias cd-js="cd js/nudetect/2.2"
 alias cd-m="cd ../../../"
+alias dth="cd ${DOTFILES_PATH}"
 
 alias vm="cd /mnt/devvm"
 alias projects="cd /mnt/devvm/projects"
 
+#alias aws="aws --account $ACCOUNT --region $REGION --no-cli-pager"
+
 alias total="df"
 alias space="sudo ncdu /"
 alias port="check-port-in-use"
-alias functions="vim ~/dotfiles/home/functions; source ~/dotfiles/home/functions"
-alias aliases="vim ~/dotfiles/home/aliases; source ~/dotfiles/home/aliases"
-alias tools="vim ~/dotfiles/home/tools; source ~/dotfiles/home/tools"
+alias functions="vim ${DOTFILES_PATH}/home/functions; source ${DOTFILES_PATH}/home/functions"
+alias aliases="vim ${DOTFILES_PATH}/home/aliases; source ${DOTFILES_PATH}/home/aliases"
+alias tools="vim ${DOTFILES_PATH}/home/tools; source ${DOTFILES_PATH}/home/tools"
 alias bashrc="vim ~/.bashrc; source ~/.bashrc"
-alias reload="source ~/dotfiles/loader/william"
-alias docker="sudo docker"
+alias reload="source ${DOTFILES_PATH}/loader/william"
+alias dk="sudo docker "
+alias ym="sudo yum "
+
+alias rb="sudo shutdown -r now 'r3b00t1ng'"
+
+alias aws-set-creds="source ~/.aws-set-creds"
 
 # free space
 #sudo rm -rf /mnt/tmp/scratchspace/*
 #sudo rm -rf /tmp/*
+
+# last callers
+#switch-java 17
+
