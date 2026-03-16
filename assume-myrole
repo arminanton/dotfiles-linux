@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEBUG="${DEBUG:-0}"
+(( DEBUG )) && set -x
+
+ROLE_ARN="${ROLE_ARN:-arn:aws:iam::125599219824:role/NuDataSecurity-Jenkins}"
+OUTPUT_PROFILE="${OUTPUT_PROFILE:-ndsuat}"
+REGION="${REGION:-us-east-1}"
+DURATION_SECS="${DURATION_SECS:-3600}"
+REFRESH_MARGIN_SECS="${REFRESH_MARGIN_SECS:-600}"
+SESSION_NAME="${SESSION_NAME:-cli-credential-process}"
+CONTROL_FILE="${CONTROL_FILE:-$HOME/.dotfiles/assume-myrole.control}"
+LOG_FILE="${LOG_FILE:-$HOME/.dotfiles/assume-role-refresh.log}"
+
+log() {
+  printf '%s %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*" >> "$LOG_FILE"
+}
+
+is_enabled() {
+  [[ -f "$CONTROL_FILE" ]] || return 1
+  grep -qE '^enabled=1$' "$CONTROL_FILE"
+}
+
+if ! is_enabled; then
+  log "skip: disabled by control file ($CONTROL_FILE)"
+  exit 0
+fi
+
+usage() {
+  cat >&2 <<'EOF'
+Usage:
+  assume-myrole [--role-arn ARN] [--output-profile NAME] [--region REGION]
+                [--duration SECONDS] [--margin SECONDS] [--session-name NAME]
+EOF
+  exit 2
+}
+
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
+}
+
+need_arg() {
+  [[ $# -ge 2 && -n "${2:-}" ]] || usage
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --role-arn)      need_arg "$@"; ROLE_ARN="$2"; shift 2 ;;
+    --output-profile) need_arg "$@"; OUTPUT_PROFILE="$2"; shift 2 ;;
+    --region)        need_arg "$@"; REGION="$2"; shift 2 ;;
+    --duration)      need_arg "$@"; DURATION_SECS="$2"; shift 2 ;;
+    --margin)        need_arg "$@"; REFRESH_MARGIN_SECS="$2"; shift 2 ;;
+    --session-name)  need_arg "$@"; SESSION_NAME="$2"; shift 2 ;;
+    -h|--help)       usage ;;
+    *)               echo "Unknown arg: $1" >&2; usage ;;
+  esac
+done
+
+need_cmd aws
+need_cmd jq
+need_cmd flock
+need_cmd mktemp
+need_cmd date
+
+[[ -n "$ROLE_ARN" ]] || die "ROLE_ARN is required"
+[[ "$DURATION_SECS" =~ ^[0-9]+$ ]] || die "DURATION_SECS must be numeric"
+[[ "$REFRESH_MARGIN_SECS" =~ ^[0-9]+$ ]] || die "REFRESH_MARGIN_SECS must be numeric"
+
+# Role chaining is limited to 3600 seconds.
+(( DURATION_SECS >= 900 )) || die "DURATION_SECS should be at least 900"
+(( DURATION_SECS <= 3600 )) || die "DURATION_SECS must be <= 3600 for role chaining"
+(( REFRESH_MARGIN_SECS >= 0 )) || die "REFRESH_MARGIN_SECS must be >= 0"
+
+AWS_DIR="${AWS_CONFIG_DIR:-$HOME/.aws}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/aws-assume"
+LOCK_FILE="/tmp/aws-assume-${OUTPUT_PROFILE}.lock"
+STATE_FILE="$CACHE_DIR/${OUTPUT_PROFILE}.json"
+
+mkdir -p "$CACHE_DIR"
+
+now_epoch() { date -u +%s; }
+iso_to_epoch() { date -u -d "$1" +%s 2>/dev/null || echo 0; }
+
+exec 9>"$LOCK_FILE"
+flock -n 9 || exit 0
+
+if [[ -f "$STATE_FILE" ]]; then
+  EXP_ISO="$(jq -r '.Expiration // empty' "$STATE_FILE" 2>/dev/null || true)"
+  if [[ -n "$EXP_ISO" ]]; then
+    NOW="$(now_epoch)"
+    EXP="$(iso_to_epoch "$EXP_ISO")"
+    REMAIN=$((EXP - NOW))
+    if (( REMAIN > REFRESH_MARGIN_SECS )); then
+      log "skip profile=$OUTPUT_PROFILE remaining=${REMAIN}s"
+      exit 0
+    fi
+  fi
+fi
+
+AKID="$(aws configure get aws_access_key_id     --profile "$OUTPUT_PROFILE" 2>/dev/null || true)"
+SECK="$(aws configure get aws_secret_access_key --profile "$OUTPUT_PROFILE" 2>/dev/null || true)"
+TOKN="$(aws configure get aws_session_token     --profile "$OUTPUT_PROFILE" 2>/dev/null || true)"
+
+if [[ -z "$AKID" || -z "$SECK" || -z "$TOKN" ]]; then
+  die "No current temporary credentials found in profile [$OUTPUT_PROFILE]"
+fi
+
+read -r NEW_AKID NEW_SECK NEW_TOKN NEW_EXP < <(
+  aws sts assume-role \
+    --role-arn "$ROLE_ARN" \
+    --role-session-name "$SESSION_NAME" \
+    --duration-seconds "$DURATION_SECS" \
+    --region "$REGION" \
+    --profile "$OUTPUT_PROFILE" \
+    --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken,Expiration]' \
+    --output text
+)
+
+[[ -n "$NEW_AKID" && -n "$NEW_SECK" && -n "$NEW_TOKN" && -n "$NEW_EXP" ]] \
+  || die "Failed to obtain refreshed credentials from STS"
+
+aws configure set aws_access_key_id     "$NEW_AKID" --profile "$OUTPUT_PROFILE"
+aws configure set aws_secret_access_key "$NEW_SECK" --profile "$OUTPUT_PROFILE"
+aws configure set aws_session_token     "$NEW_TOKN" --profile "$OUTPUT_PROFILE"
+aws configure set region                "$REGION"   --profile "$OUTPUT_PROFILE"
+
+if [[ "$OUTPUT_PROFILE" == "${AWS_PROFILE:-}" ]]; then
+  export AWS_ACCESS_KEY_ID="$NEW_AKID"
+  export AWS_SECRET_ACCESS_KEY="$NEW_SECK"
+  export AWS_SESSION_TOKEN="$NEW_TOKN"
+fi
+
+tmp_state="$(mktemp "${STATE_FILE}.XXXXXX")"
+jq -n \
+  --arg exp "$NEW_EXP" \
+  --arg role "$ROLE_ARN" \
+  --arg out "$OUTPUT_PROFILE" \
+  --argjson dur "$DURATION_SECS" \
+  '{RoleARN:$role, OutputProfile:$out, DurationSeconds:$dur, Expiration:$exp}' \
+  > "$tmp_state"
+mv "$tmp_state" "$STATE_FILE"
+
+aws sts get-caller-identity --region "$REGION" --profile "$OUTPUT_PROFILE" >/dev/null 2>&1 || true
+log "refreshed profile=$OUTPUT_PROFILE expires=$NEW_EXP"
+
+if [[ "$OUTPUT_PROFILE" == "ndsuat" ]]; then
+  $HOME/.dotfiles/assume-myrole \
+    --role-arn "arn:aws:iam::649133954051:role/NuDataSecurity-Jenkins" \
+    --output-profile "ndsprod"
+fi
+
+# crontab -l
+# crontab -e
+# */5 * * * * $HOME/.dotfiles/assume-myrole >> $HOME/.dotfiles/assume-role-refresh.log 2>&1

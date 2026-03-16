@@ -123,6 +123,10 @@ alias ym="sudo yum "
 alias rb="sudo shutdown -r now 'r3b00t1ng'"
 
 alias aws-set-creds="source ~/.aws-set-creds"
+alias aws-control-creds-enable="echo 'enabled=1' > ~/.dotfiles/assume-myrole.control"
+alias aws-control-creds-disable="echo 'enabled=0' > ~/.dotfiles/assume-myrole.control"
+alias aws-control-cron-set="crontab -l; echo '*/5 * * * * $HOME/.dotfiles/assume-myrole >> $HOME/.dotfiles/assume-role-refresh.log 2>&1' | crontab -"
+alias aws-control-cron-unset="crontab -l | grep -v 'assume-myrole' | crontab -"
 
 # free space
 #sudo rm -rf /mnt/tmp/scratchspace/*
