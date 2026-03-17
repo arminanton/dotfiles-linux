@@ -27,13 +27,14 @@ for item in "${items[@]}"; do
   src="/home/ndsadmin/${item}"
   dst="/root/${item}"
 
-  if [[ -d "${src}" ]]; then
+  #if [[ -d "${src}" ]]; then
     echo "Adding ${src} -> ${dst}"
-    printf 'bindfs#%s %s fuse force-user=ndsadmin,force-group=ndsadmin,perms=0700,create-for-user=ndsadmin,create-for-group=ndsadmin,create-with-perms=0600:u+D,chmod-ignore,nonempty 0 0\n' \
+    printf 'bindfs#%s %s fuse force-user=ndsadmin,force-group=ndsadmin,perms=0700,create-for-user=ndsadmin,create-for-group=ndsadmin,chmod-normal,nonempty,x-systemd.requires-mounts-for=/home/ndsadmin/.dotfiles,x-systemd.automount,nofail 0 0\n' \
       "${src}" "${dst}" | sudo tee -a /etc/fstab >/dev/null
+    mkdir -p "${src}" # ensure it exists for the mount to work
     sudo mkdir -p "${dst}" # ensure it exists for the mount to work
-  else
-    echo "Skipping ${src}, does not exist"
-  fi
+  #else
+  #  echo "Skipping ${src}, does not exist"
+  #fi
 done
 echo -e "\n" | sudo tee -a /etc/fstab >/dev/null
