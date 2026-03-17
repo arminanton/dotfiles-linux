@@ -1,0 +1,9 @@
+#!/bin/sh
+if [ -x /usr/local/bin/corepack ]; then
+  exec /usr/local/bin/corepack "$@"
+elif [ -x /usr/bin/corepack ]; then
+  exec /usr/bin/corepack "$@"
+else
+  echo "corepack not found" >&2
+  exit 127
+fi

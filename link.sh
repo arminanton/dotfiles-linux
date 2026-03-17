@@ -26,7 +26,7 @@ items=(
   pip
   npmrc
   bin
-  local
+  #local
 )
 
 mkdir -p "${BACKUP_DIR}"

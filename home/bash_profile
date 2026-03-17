@@ -11,3 +11,4 @@ else
 	unset BASH_FIRST
 fi
 
+. "$HOME/.cargo/env"
