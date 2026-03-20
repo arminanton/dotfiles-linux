@@ -1,6 +1,6 @@
 [user]
-	email = william.anton@mastercard.com
-	name = William Anton
+	email = your.name@mastercard.com
+	name = Your Name
 [safe]
 	directory = /opt/podman
 [credential "https://github.com"]

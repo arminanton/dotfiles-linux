@@ -1,6 +1,6 @@
 {
-  "user.email": ["william.anton@mastercard.com"],
-  "user.name": ["William Anton"],
+  "user.email": ["your.name@mastercard.com"],
+  "user.name": ["Your Name"],
   "safe.directory": ["/opt/podman"],
   "credential.https://github.com.helper": ["", "!/usr/bin/gh auth git-credential"],
   "credential.https://gist.github.com.helper": ["", "!/usr/bin/gh auth git-credential"],
