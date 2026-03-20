@@ -22,5 +22,9 @@
   "color.diff.new": ["green bold"],
   "color.diff.whitespace": ["red reverse"],
   "diff-so-fancy.stripLeadingSymbols": ["false"],
-  "init.defaultBranch": ["master"]
+  "init.defaultBranch": ["master"],
+  "push.autoSetupRemote": ["true"],
+  "push.default": ["current"],
+  "remote.pushDefault": ["origin"],
+  "fetch.prune": ["true"]
 }

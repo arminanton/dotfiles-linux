@@ -1,0 +1,409 @@
+version: 4
+final_space: true
+console_title_template: "{{ .Folder }}"
+
+transient_prompt:
+  background: transparent
+  foreground: "#d6deeb"
+  template: " "
+
+blocks:
+  # =========================[ Line 1: Left Side ]=========================
+  - type: prompt
+    alignment: left
+    segments:
+      # 1. OS / WSL
+      - type: os
+        style: diamond
+        background: "#21c7a8"
+        foreground: "#011627"
+        leading_diamond: "╭─"
+        trailing_diamond: ""
+        template: " {{ if .WSL }}WSL at {{ end }}{{ .Icon }}  "
+        properties:
+          windows: ""
+
+      # 2. Root Indicator
+      - type: root
+        style: powerline
+        background: "#ef5350"
+        foreground: "#ffeb95"
+        powerline_symbol: ""
+        template: "  "
+
+      # 3. Path
+      - type: path
+        style: powerline
+        background: "#82AAFF"
+        foreground: "#011627"
+        powerline_symbol: ""
+        #leading_powerline_symbol: ""
+        template: "{{ path .Path .Location }}"
+        properties:
+          folder_icon: " "
+          folder_separator_icon: "<#011627></> "
+          home_icon: "  "
+          style: agnoster
+
+      # 4. Git Status
+      - type: git
+        style: powerline
+        background: "#addb67"
+        foreground: "#011627"
+        powerline_symbol: ""
+        background_templates:
+          - "{{ if or (.Working.Changed) (.Staging.Changed) }}#e4cf6a{{ end }}"
+          - "{{ if and (gt .Ahead 0) (gt .Behind 0) }}#f78c6c{{ end }}"
+          - "{{ if gt .Ahead 0 }}#C792EA{{ end }}"
+          - "{{ if gt .Behind 0 }}#c792ea{{ end }}"
+        template: " {{ .UpstreamIcon }} {{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}  {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }}  {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }}  {{ .StashCount }}{{ end }} "
+        properties:
+          branch_icon: " "
+          fetch_status: true
+          fetch_upstream_icon: true
+          mapped_branches:
+            "feat/*": "🚀 "
+            "bug/*": "🐛 "
+
+      # 5. Execution Time
+      - type: executiontime
+        style: diamond
+        background: "#575656"
+        foreground: "#d6deeb"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ .FormattedMs }}"
+        properties:
+          style: roundrock
+          threshold: 0
+
+  # =========================[ Line 1: Right Side ]========================
+  - type: prompt
+    alignment: right
+    overflow: break
+    segments:
+      # 1. Shell
+      - type: shell
+        style: diamond
+        background: "#d6deeb"
+        foreground: "#011627"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "  {{ .Name }} "
+
+      # 2. Memory
+      - type: sysinfo
+        style: diamond
+        background: "#8f43f3"
+        foreground: "#ffffff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ round .PhysicalPercentUsed .Precision }}% "
+
+      # 3. Angular
+      - type: angular
+        style: diamond
+        background: "#ffffff"
+        foreground: "#ce092f"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 4. Aurelia
+      - type: aurelia
+        style: diamond
+        background: "#ffffff"
+        foreground: "#de1f84"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "α {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 5. AWS
+      - type: aws
+        style: diamond
+        background: "#565656"
+        foreground: "#faa029"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ .Profile }}{{ if .Region }}@{{ .Region }}{{ end }} "
+
+      # 6. Azure
+      - type: az
+        style: diamond
+        background: "#ffffff"
+        foreground: "#337bb6"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ .EnvironmentName }} "
+
+      # 7. Azure Functions
+      - type: azfunc
+        style: diamond
+        background: "#ffffff"
+        foreground: "#5398c2"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "<#f5bf45></> {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 8. CDS
+      - type: cds
+        style: diamond
+        background: "#5a7a94"
+        foreground: "#100e23"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "  cds {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 9. Crystal
+      - type: crystal
+        style: diamond
+        background: "#ffffff"
+        foreground: "#000000"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 10. Cloud Foundry
+      - type: cf
+        style: diamond
+        background: "#ffffff"
+        foreground: "#1d5185"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "  cf {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 11. Cloud Foundry Target
+      - type: cftarget
+        style: diamond
+        background: "#ffffff"
+        foreground: "#1d5185"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Org }}{{ .Org }}{{ end }}{{ if .Space }}/{{ .Space }}{{ end }} "
+
+      # 12. CMake
+      - type: cmake
+        style: diamond
+        background: "#d2d2d2"
+        foreground: "#01a300"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "<#2829b2></> <#be1818></>  cmake {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 13. Dart
+      - type: dart
+        style: diamond
+        background: "#e1e8e9"
+        foreground: "#055b9c"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 14. .NET
+      - type: dotnet
+        style: diamond
+        background: "#0e0e0e"
+        foreground: "#0d6da8"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "  {{ if .Unsupported }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 15. Flutter
+      - type: flutter
+        style: diamond
+        background: "#06A4CE"
+        foreground: "#ffffff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 16. Go
+      - type: go
+        style: diamond
+        background: "#ffffff"
+        foreground: "#06aad5"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 17. Haskell
+      - type: haskell
+        style: diamond
+        background: "#100e23"
+        foreground: "#906cff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 18. Java
+      - type: java
+        style: diamond
+        background: "#ffffff"
+        foreground: "#ec2729"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 19. Julia
+      - type: julia
+        style: diamond
+        background: "#945bb3"
+        foreground: "#ffffff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "<#ca3c34></> {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 20. Kotlin
+      - type: kotlin
+        style: diamond
+        background: "#906cff"
+        foreground: "#ffffff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "K {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 21. Kubectl
+      - type: kubectl
+        style: diamond
+        background: "#316ce4"
+        foreground: "#ffffff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ .Context }} :: {{ if .Namespace }}{{ .Namespace }}{{ else }}default{{ end }} "
+
+      # 22. Lua
+      - type: lua
+        style: diamond
+        background: "#ffffff"
+        foreground: "#000081"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 23. Node
+      - type: node
+        style: diamond
+        background: "#303030"
+        foreground: "#3C873A"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .PackageManagerIcon }}{{ .PackageManagerIcon }} {{ end }}{{ .Full }} "
+        properties:
+          fetch_package_manager: true
+          npm_icon: "<#cc3a3a></> "
+          yarn_icon: "<#348cba></> "
+
+      # 24. Nx
+      - type: nx
+        style: diamond
+        background: "#6488c0"
+        foreground: "#1e293b"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "Nx {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 25. Perl
+      - type: perl
+        style: diamond
+        background: "#41436d"
+        foreground: "#ffffff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 26. PHP
+      - type: php
+        style: diamond
+        background: "#787CB5"
+        foreground: "#000000"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 27. Python
+      - type: python
+        style: diamond
+        background: "#306998"
+        foreground: "#FFE873"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ if .Venv }}{{ .Venv }} {{ end }}{{ .Full }}{{ end }}"
+
+      # 28. R
+      - type: r
+        style: diamond
+        background: "#b9bbbf"
+        foreground: "#1c68bd"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: "R {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 29. Ruby
+      - type: ruby
+        style: diamond
+        background: "#ffffff"
+        foreground: "#9c1006"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 30. Rust
+      - type: rust
+        style: diamond
+        background: "#ffffff"
+        foreground: "#000000"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 31. Swift
+      - type: swift
+        style: diamond
+        background: "#fe562e"
+        foreground: "#ffffff"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      # 32. Time
+      - type: time
+        style: diamond
+        background: "#234d70"
+        foreground: "#d6deeb"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ .CurrentDate | date .Format }}"
+        properties:
+          time_format: "15:04:05"
+
+  # =========================[ Line 2 ]===================================
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      # 1. Bottom-left frame
+      - type: text
+        style: plain
+        foreground: "#21c7a8"
+        template: "╰─"
+
+      # 2. Spotify
+      - type: spotify
+        style: diamond
+        background: "#1DB954"
+        foreground: "#011627"
+        leading_diamond: ""
+        trailing_diamond: " "
+        template: " {{ .Icon }}{{ if ne .Status \"stopped\" }}{{ .Artist }} ~ {{ .Track }}{{ end }} "
+        properties:
+          playing_icon: " "
+
+      # 3. Prompt Status
+      - type: status
+        style: plain
+        foreground: "#22da6e"
+        foreground_templates:
+          - "{{ if gt .Code 0 }}#ef5350{{ end }}"
+        template: ""
+        properties:
+          always_enabled: true

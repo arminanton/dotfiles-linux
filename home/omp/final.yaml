@@ -1,0 +1,605 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json
+
+version: 4
+final_space: true
+enable_cursor_positioning: true
+console_title_template: "{{ .Shell }} in {{ .Folder }}"
+
+transient_prompt:
+  background: transparent
+  foreground: "#d6deeb"
+  newline: true
+  template: " "
+
+palette:
+  usage-ok-bg: "#4ADE80"      # green
+  usage-warn-bg: "#FACC15"    # yellow
+  usage-crit-bg: "#DC2626"    # red
+  usage-dark-fg: "#111111"    # for green/yellow
+  usage-light-fg: "#FFFFFF"   # for red
+  folder-bg: "#1c68bd"
+  # folder-bg: "#FFE873"
+  folder-fg: "#000000"
+  path-bg: "#FFE873"
+  # path-bg: "#1c68bd"
+  path-fg: "#000000"
+
+  git-clean-bg: "#22C55E"
+  git-clean-fg: "#111111"
+
+  git-upstream-bg: "#60A5FA"
+  git-upstream-fg: "#111111"
+  git-upstream-gone-bg: "#EF4444"
+  git-upstream-gone-fg: "#FFFFFF"
+
+  git-ahead-bg: "#C792EA"
+  git-ahead-fg: "#111111"
+  git-behind-bg: "#A78BFA"
+  git-behind-fg: "#111111"
+  git-diverged-bg: "#F97316"
+  git-diverged-fg: "#111111"
+  git-identical-bg: "#22C55E"
+  git-identical-fg: "#111111"
+
+  git-untracked-bg: "#94A3B8"
+  git-untracked-fg: "#111111"
+  git-modified-bg: "#FACC15"
+  git-modified-fg: "#111111"
+  git-added-bg: "#4ADE80"
+  git-added-fg: "#111111"
+  git-deleted-bg: "#FB7185"
+  git-deleted-fg: "#111111"
+  git-unmerged-bg: "#EF4444"
+  git-unmerged-fg: "#FFFFFF"
+
+  git-stash-bg: "#2563EB"
+  git-stash-fg: "#FFFFFF"
+
+  git-commit-bg: "#E5E7EB"
+  git-commit-fg: "#111111"
+  git-author-bg: "#D1FAE5"
+  git-author-fg: "#111111"
+
+blocks:
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      - type: text
+        style: plain
+        # foreground: "#6b7280"
+        template: "<> </>"
+
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      - type: text
+        style: plain
+        # foreground: "#6b7280"
+        template: "<> </>"
+  # =========================[ Line 1: Left Side ]=========================
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      # 1. OS / WSL
+      - type: os
+        style: diamond
+        background: "#FEF5ED" # background
+        foreground: "#011627" # text
+        leading_diamond: "" #                                    
+        trailing_diamond: ""
+        template: "{{ if .WSL }}WSL at {{ end }}{{ .Icon }}"
+        options:
+          macos: ""
+          linux: ""
+          ubuntu: ""
+          arch: ""
+          alma: ""
+          redhat: ""
+          rocky: ""
+          windows: ""
+
+      # 3. Local IP (from POSH_IP)
+      - type: text
+        style: diamond
+        background: "#FEF5ED"
+        foreground: "#011627"
+        leading_diamond: "<transparent,#FEF5ED></>" # leading (initial)
+        trailing_diamond: "<#FEF5ED,transparent></>" # trailing (after)
+        template: '{{ if .Env.POSH_IP }}  {{ .Env.POSH_IP }} {{ end }}'
+
+      # 4. Shell
+      - type: shell
+        style: diamond
+        background: "#FEF5ED"
+        foreground: "#011627"
+        leading_diamond: "<transparent,#FEF5ED></>" # leading (initial)
+        trailing_diamond: "<#FEF5ED,transparent></>" # trailing (after)
+        template: "  {{ .Name }} "
+
+      # 7. Execution Time
+      - type: executiontime
+        style: powerline
+        background: "#575656"
+        foreground: "#d6deeb"
+        powerline_symbol: ""
+        template: " {{ .FormattedMs }} "
+        options:
+          threshold: 0
+
+      - type: text
+        style: plain
+        foreground: "#6b7280"
+        template: "<#6b7280,transparent>···</>"
+
+      # 5. RAM
+      - type: sysinfo
+        style: diamond
+        background: "p:usage-ok-bg"
+        foreground: "p:usage-dark-fg"
+        leading_diamond: ""
+        trailing_diamond: ""
+        template: " {{ round .PhysicalPercentUsed .Precision }}% [{{ (div ((sub .PhysicalTotalMemory .PhysicalAvailableMemory)|float64) 1073741824.0) }}/{{ (div .PhysicalTotalMemory 1073741824.0) }}GB]"
+        background_templates:
+          - '{{ if gt .PhysicalPercentUsed 90.0 }}p:usage-crit-bg{{ end }}'
+          - '{{ if gt .PhysicalPercentUsed 80.0 }}p:usage-warn-bg{{ end }}'
+        foreground_templates:
+          - '{{ if gt .PhysicalPercentUsed 90.0 }}p:usage-light-fg{{ end }}'
+        options:
+          precision: 1
+
+      # 6. Disk
+      - type: text
+        style: diamond
+        background: "p:usage-ok-bg"
+        foreground: "p:usage-dark-fg"
+        leading_diamond: ""
+        trailing_diamond: " "
+        template: '{{ if .Env.POSH_DISK }} {{ .Env.POSH_DISK }}{{ end }}'
+        background_templates:
+          - '{{ if gt (atoi .Env.POSH_DISK_PCT) 90 }}p:usage-crit-bg{{ end }}'
+          - '{{ if gt (atoi .Env.POSH_DISK_PCT) 80 }}p:usage-warn-bg{{ end }}'
+        foreground_templates:
+          - '{{ if gt (atoi .Env.POSH_DISK_PCT) 90 }}p:usage-light-fg{{ end }}'
+
+  # =========================[ Line 1: Right Side ]========================
+  - type: prompt
+    alignment: right
+    overflow: break
+    filler: '{{ if .Overflow }}{{ else }}<#6b7280>·</>{{ end }}'
+    segments:
+      # 2. user@host (short host)
+      - type: session
+        style: diamond
+        background: "#c4a000"
+        foreground: "#011627"
+        # powerline_symbol: ""
+        # leading_diamond: ""
+        # leading_diamond: "<transparent,transparent></> " # leading (initial)
+        # trailing_diamond: "<transparent,transparent></>" # trailing (after)
+        # trailing_diamond: ""
+        # template: '{{ .UserName }}@{{ (splitList "." .HostName | first) }}'
+        template: '<#FF0000,transparent> {{ .UserName }}</><#c4a000,transparent></>@<#c4a000,transparent></><#faa029,transparent>{{ (splitList "." .Env.POSH_EC2_ID | first) }} </>'
+
+      # 5. AWS
+      - type: aws
+        style: diamond
+        background: "#464646"
+        foreground: "#faa029"
+        leading_diamond: "<#464646,transparent></>"
+        trailing_diamond: "<transparent,#464646></>"
+        template: "  {{ .Profile }}{{ if .Region }}@{{ .Region }}{{ end }} "
+
+      # Time
+      - type: time
+        style: plain
+        foreground: "#e5e7eb"
+        background: "transparent"
+        template: "  {{ .CurrentDate | date .Format }} "
+        options:
+          time_format: "15:04 pm"
+
+  # =========================[ Line 2: Left Side ]===================================
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      - type: git
+        style: diamond
+        background: "transparent"
+        foreground: "#6b7280"
+        template: '├─'
+
+      # Upstream provider
+      - type: git
+        style: diamond
+        background: "p:git-upstream-bg"
+        foreground: "p:git-upstream-fg"
+        leading_diamond: "<p:git-upstream-bg,transparent></>" # leading (initial)
+        trailing_diamond: "<p:git-upstream-bg,transparent></>" # trailing (after)
+        # {{ .UpstreamIcon }} {{ .Upstream }}
+        template: >-
+          <> </>
+          {{- if .Env.POSH_GIT_PROVIDER_URL -}}
+            {{ url .Env.POSH_GIT_PROVIDER .Env.POSH_GIT_PROVIDER_URL }}
+          {{- else if .UpstreamGone -}}
+            GONE
+          {{- else if contains "github" .UpstreamURL -}}
+             GitHub
+          {{- else if contains "gitlab" .UpstreamURL -}}
+             GitLab
+          {{- else if contains "bitbucket" .UpstreamURL -}}
+             Bitbucket
+          {{- else if contains "dev.azure" .UpstreamURL -}}
+             Azure
+          {{- else if contains "codecommit" .UpstreamURL -}}
+             CodeCommit
+          {{- else if .UpstreamURL -}}
+             GHE
+          {{- end -}}
+          <> </>
+        background_templates:
+          - '{{ if .UpstreamGone }}p:git-upstream-gone-bg{{ end }}'
+        foreground_templates:
+          - '{{ if .UpstreamGone }}p:git-upstream-gone-fg{{ end }}'
+        options:
+          fetch_upstream_icon: true
+
+      # Branch name
+      - type: git
+        style: diamond
+        background: "p:git-clean-bg"
+        foreground: "p:git-clean-fg"
+        leading_diamond: "<transparent,background></>"
+        trailing_diamond: "<background,transparent></>"
+        template: " {{ if .Env.POSH_GIT_REPO_URL }}{{ url .Env.POSH_GIT_REPO_ICON .Env.POSH_GIT_REPO_URL }}{{ else }}{{ end }} <background,transparent></><transparent,background></> {{ if .Env.POSH_GIT_BRANCH_URL }}{{ url .Env.POSH_GIT_BRANCH .Env.POSH_GIT_BRANCH_URL }}{{ else }}{{ .HEAD }}{{ end }} "
+        background_templates:
+          - '{{ if and (gt .Ahead 0) (gt .Behind 0) }}p:git-diverged-bg{{ end }}'
+          - '{{ if gt .Ahead 0 }}p:git-ahead-bg{{ end }}'
+          - '{{ if gt .Behind 0 }}p:git-behind-bg{{ end }}'
+          - '{{ if or (.Working.Changed) (.Staging.Changed) }}p:git-modified-bg{{ end }}'
+        options:
+          branch_icon: ""
+          fetch_status: true
+          fetch_upstream_icon: true
+      # - type: git
+      #   style: diamond
+      #   background: "p:git-clean-bg"
+      #   foreground: "p:git-clean-fg"
+      #   leading_diamond: "<transparent,p:git-clean-bg></>" # leading (initial)
+      #   trailing_diamond: "<p:git-clean-bg,transparent></>" # trailing (after)
+      #   # powerline_symbol: ""
+      #   template: "  <p:git-clean-bg,transparent></><transparent,p:git-clean-bg></> {{ .HEAD }} "
+      #   background_templates:
+      #     - '{{ if or (.Working.Changed) (.Staging.Changed) }}p:git-modified-bg{{ end }}'
+      #     - '{{ if and (gt .Ahead 0) (gt .Behind 0) }}p:git-diverged-bg{{ end }}'
+      #     - '{{ if gt .Ahead 0 }}p:git-ahead-bg{{ end }}'
+      #     - '{{ if gt .Behind 0 }}p:git-behind-bg{{ end }}'
+
+      # Sync state instead of BranchStatus
+      - type: git
+        style: diamond
+        background: "p:git-identical-bg"
+        foreground: "p:git-identical-fg"
+        leading_diamond: "<transparent,background></>" # leading (initial)
+        trailing_diamond: "<background,transparent></>" # trailing (after)
+        template: >-
+          <> </>
+          {{- if and (gt .Ahead 0) (gt .Behind 0) -}}
+            ⇅ diverged  ↑{{ .Ahead }} ahead  ↓{{ .Behind }} behind
+          {{- else if gt .Ahead 0 -}}
+            ↑ {{ .Ahead }} ahead
+          {{- else if gt .Behind 0 -}}
+            ↓ {{ .Behind }} behind
+          {{- else if .UpstreamGone -}}
+            ≢ drifted
+          {{- else -}}
+            ≡ synced
+          {{- end -}}
+          <> </>
+        background_templates:
+          - '{{ if .UpstreamGone }}p:git-upstream-gone-bg{{ end }}'
+          - '{{ if and (gt .Ahead 0) (gt .Behind 0) }}p:git-diverged-bg{{ end }}'
+          - '{{ if gt .Ahead 0 }}p:git-ahead-bg{{ end }}'
+          - '{{ if gt .Behind 0 }}p:git-behind-bg{{ end }}'
+        foreground_templates:
+          - '{{ if .UpstreamGone }}p:git-upstream-gone-fg{{ end }}'
+          - '{{ if and (gt .Ahead 0) (gt .Behind 0) }}p:git-diverged-fg{{ end }}'
+          - '{{ if gt .Ahead 0 }}p:git-ahead-fg{{ end }}'
+          - '{{ if gt .Behind 0 }}p:git-behind-fg{{ end }}'
+        options:
+          fetch_status: true
+          fetch_upstream_icon: true
+
+      # Commit and author
+      - type: git
+        style: diamond
+        background: "p:git-commit-bg"
+        foreground: "p:git-commit-fg"
+        leading_diamond: "<transparent,p:git-commit-bg></>" # leading (initial)
+        trailing_diamond: "<p:git-commit-bg,transparent></>" # trailing (after)
+        template: " {{ if .Env.POSH_GIT_COMMIT_URL }}{{ url .Env.POSH_GIT_COMMIT_SHORT .Env.POSH_GIT_COMMIT_URL }}{{ else }}{{ .ShortHash }}{{ end }} "
+        options:
+          fetch_status: true
+          fetch_author: true
+
+      # Author
+      - type: git
+        style: diamond
+        background: "p:git-author-bg"
+        foreground: "p:git-author-fg"
+        leading_diamond: "<transparent,p:git-author-bg></>" # leading (initial)
+        trailing_diamond: "<p:git-author-bg,transparent></>" # trailing (after)
+        template: '{{ if and (.Commit.Author.Name) (ne .Env.GIT_USERNAME .Commit.Author.Name) }} {{ .Commit.Author.Name }} {{ end }}'
+        options:
+          fetch_status: true
+          fetch_author: true
+
+      # - type: text
+      #   style: plain
+      #   foreground: "#6b7280"
+      #   template: "<#6b7280,transparent>···</>"
+
+  # =========================[ Line 2: Right Side ]========================
+  - type: prompt
+    alignment: right
+    # newline: true
+    overflow: break
+    # filler: '{{ if .Overflow }}{{ else }}<#6b7280>·</>{{ end }}'
+    segments:
+
+      # Worktree badges
+      - type: git
+        style: diamond
+        background: "transparent"
+        foreground: "transparent"
+        template: >-
+          {{- if .Working.String -}}
+            <p:git-unmerged-bg,transparent> ✖ unstaged </>
+          {{- end -}}
+          {{- if gt .Working.Untracked 0 -}}
+            <p:git-untracked-bg,transparent></><p:git-untracked-fg,p:git-untracked-bg>[?] {{ .Working.Untracked }} untracked </><p:git-untracked-bg,transparent></>
+          {{- end -}}
+          {{- if gt .Working.Modified 0 -}}
+            <p:git-modified-bg,transparent></></><p:git-modified-fg,p:git-modified-bg>[~] {{ .Working.Modified }} modified </><p:git-modified-bg,transparent></>
+          {{- end -}}
+          {{- if and (gt .Working.Added 0) (gt .Working.Added .Staging.Added) -}}
+            <p:git-added-bg,transparent></><p:git-added-fg,p:git-added-bg>[+] {{ sub .Working.Added .Staging.Added }} added </><p:git-added-bg,transparent></>
+          {{- end -}}
+          {{- if gt .Working.Deleted 0 -}}
+            <p:git-deleted-bg,transparent></><p:git-deleted-fg,p:git-deleted-bg>[-] {{ .Working.Deleted }} deleted </><p:git-deleted-bg,transparent></>
+          {{- end -}}
+          {{- if gt .Working.Unmerged 0 -}}
+            <p:git-unmerged-bg,transparent></><p:git-unmerged-fg,p:git-unmerged-bg>[x] {{ .Working.Unmerged }} unmerged </><p:git-unmerged-bg,transparent></>
+          {{- end -}}
+          {{- if .Working.String -}}
+            <p:git-unmerged-bg,transparent></>
+          {{- end -}}
+        options:
+          fetch_status: true
+
+      # Stash
+      - type: git
+        style: diamond
+        background: "p:git-stash-bg"
+        foreground: "p:git-stash-fg"
+        template: '{{ if gt .StashCount 0 }}  stash {{ .StashCount }} {{ end }}'
+
+  # =========================[ Line 3: Left Side ]===================================
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      - type: text
+        style: diamond
+        background: "transparent"
+        foreground: "#6b7280"
+        # template: '\u256d\u2500'
+        template: '├─'
+
+      - type: text
+        style: diamond
+        background: "p:folder-bg"
+        foreground: "p:folder-fg"
+        leading_diamond: "<p:folder-bg,transparent></>" # leading (initial)
+        # trailing_diamond: "<p:folder-bg,p:path-bg></>" # trailing (after)
+        template: >-
+          {{- $home := osClean (coalesce .Env.HOME .Env.USERPROFILE) -}}
+          {{- $cwd := osClean .AbsolutePWD -}}
+          {{- $homeN := replace "\\" "/" $home -}}
+          {{- $cwdN := replace "\\" "/" $cwd -}}
+          {{- if and $home (regexMatch (printf "^%s(/|$)" (regexQuoteMeta $homeN)) $cwdN) -}}
+            <>  </><p:folder-bg,transparent></><transparent,p:path-bg></>
+          {{- else -}}
+            <>  </><p:folder-bg,transparent></><transparent,p:path-bg></><p:path-fg,p:path-bg> /   </>
+          {{- end -}}
+
+      # 1. Path
+      - type: path
+        style: diamond
+        background: "p:path-bg"
+        foreground: "p:path-fg"
+        trailing_diamond: ""
+        template: "{{ .Path }} "
+        options:
+          style: powerlevel
+          max_width: 80
+          folder_separator_icon: "   " #   
+          home_icon: " ~"
+
+      # Language/runtime segments
+      - type: terraform
+        style: powerline
+        background: "#ffffff"
+        foreground: "#7B42BC"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ .WorkspaceName }}{{ if .Version }} {{ .Version }}{{ end }} "
+        options:
+          fetch_version: true
+
+      - type: java
+        style: powerline
+        background: "#ffffff"
+        foreground: "#C74634"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+        options:
+          display_mode: context
+          fetch_version: true
+
+      - type: node
+        style: powerline
+        background: "#ffffff"
+        foreground: "#3C873A"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: " {{ if .PackageManagerIcon }} {{ .PackageManagerIcon }}{{ end }} {{ .Full }} "
+        options:
+          display_mode: context
+          fetch_package_manager: true
+          npm_icon: "<#cc3a3a></>"
+          yarn_icon: "<#348cba></>"
+
+      - type: python
+        style: powerline
+        background: "#306998"
+        foreground: "#FFE873"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ if .Venv }}{{ .Venv }} {{ end }}{{ .Full }}{{ end }} "
+        options:
+          display_mode: context
+          fetch_virtual_env: true
+          display_default: false
+
+      - type: go
+        style: powerline
+        background: "#ffffff"
+        foreground: "#06aad5"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: dotnet
+        style: powerline
+        background: "#0e0e0e"
+        foreground: "#0d6da8"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Unsupported }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: rust
+        style: powerline
+        background: "#ffffff"
+        foreground: "#000000"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: php
+        style: powerline
+        background: "#787CB5"
+        foreground: "#ffffff"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: ruby
+        style: powerline
+        background: "#AE1401"
+        foreground: "#ffffff"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: kotlin
+        style: powerline
+        background: "#906cff"
+        foreground: "#ffffff"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: " K {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: lua
+        style: powerline
+        background: "#ffffff"
+        foreground: "#000081"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: dart
+        style: powerline
+        background: "#e1e8e9"
+        foreground: "#055b9c"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+      - type: flutter
+        style: powerline
+        background: "#06A4CE"
+        foreground: "#ffffff"
+        # invert_powerline: true
+        powerline_symbol: ""
+        template: "  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} "
+
+  # =========================[ Line 3: Right Side ]========================
+  - type: prompt
+    alignment: right
+    overflow: break
+    # filler: '{{ if .Overflow }}{{ else }}<#6b7280>·</>{{ end }}'
+    segments:
+      # Staging badges
+      - type: git
+        style: diamond
+        background: "transparent"
+        foreground: "transparent"
+        template: >-
+          {{- if .Staging.String -}}
+            <p:git-added-bg,transparent> ✔ staged </>
+          {{- end -}}
+          {{- if gt .Staging.Untracked 0 -}}
+            <p:git-untracked-bg,transparent></><p:git-untracked-fg,p:git-untracked-bg>[?] {{ .Staging.Untracked }} untracked </><p:git-untracked-bg,transparent></>
+          {{- end -}}
+          {{- if gt .Staging.Modified 0 -}}
+            <p:git-modified-bg,transparent></></><p:git-modified-fg,p:git-modified-bg>[~] {{ .Staging.Modified }} modified </><p:git-modified-bg,transparent></>
+          {{- end -}}
+          {{- if gt .Staging.Added 0 -}}
+            <p:git-added-bg,transparent></><p:git-added-fg,p:git-added-bg>[+] {{ .Staging.Added }} added </><p:git-added-bg,transparent></>
+          {{- end -}}
+          {{- if gt .Staging.Deleted 0 -}}
+            <p:git-deleted-bg,transparent></><p:git-deleted-fg,p:git-deleted-bg>[-] {{ .Staging.Deleted }} deleted </><p:git-deleted-bg,transparent></>
+          {{- end -}}
+          {{- if gt .Staging.Unmerged 0 -}}
+            <p:git-unmerged-bg,transparent></><p:git-unmerged-fg,p:git-unmerged-bg>[x] {{ .Staging.Unmerged }} unmerged </><p:git-unmerged-bg,transparent></>
+          {{- end -}}
+          {{- if .Staging.String -}}
+            <p:git-added-bg,transparent></>
+          {{- end -}}
+        options:
+          fetch_status: true
+
+  # =========================[ Line 4: Final Prompt ]===================================
+  - type: prompt
+    alignment: left
+    newline: true
+    segments:
+      - type: text
+        style: plain
+        foreground: "#6b7280"
+        template: "╰─"
+
+      # Command Line
+      - type: status
+        style: plain
+        foreground: "#22da6e"
+        foreground_templates:
+          - "{{ if gt .Code 0 }}#ef5350{{ end }}"
+        template: "{{ if .Root }}#{{ else }}❯❯{{ end }} "
+        options:
+          always_enabled: true

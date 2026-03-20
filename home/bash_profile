@@ -10,5 +10,3 @@ else
 	. "${DOTFILES_PATH}/loader/william"
 	unset BASH_FIRST
 fi
-
-. "$HOME/.cargo/env"

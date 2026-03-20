@@ -4,14 +4,14 @@
 # export SYSTEMD_PAGER=
 export SONAR_TOKEN="squ_52a000cc0d384c2104b5310da0cd9c8e012085be"
 
-
 # colors
 export TERM='xterm-256color'
 export CLICOLOR=1
 export COLORTERM="truecolor"
 
-#export LANG=en_US.UTF-8
-#export LC_CTYPE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
 
 # AWS
 export REGION='us-east-1'
@@ -39,8 +39,13 @@ source "$HOME/.cargo/env"
 # curl -sSL https://get.rvm.io | bash -s stable
 # rvm install 3.4.2
 # rvm use 3.4.2 --default
-[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
-export PATH="$PATH:$HOME/.rvm/bin"
+# Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
+#export PATH="$PATH:$HOME/.rvm/bin"
+#[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
+
+# somehow rvm is forcing its presence
+unset GEM_HOME GEM_PATH MY_RUBY_HOME
+export PATH=$(echo $PATH | sed -e 's/:\/home\/ndsadmin\/.rvm[^:]*//g' -e 's/^\/home\/ndsadmin\/.rvm[^:]*://g')
 
 # wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
 # sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
@@ -49,7 +54,14 @@ export PATH="$PATH:/usr/local/go/bin"
 # export PATH="$HOME/.rbenv/bin:$PATH"
 # eval "$(rbenv init -)"
 
+# handling brew through functions to avoid issues with sudo and root user
 # eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew";
+export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar";
+export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew";
+export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/Homebrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/linuxbrew/.linuxbrew/Homebrew/sbin${PATH+:$PATH}";
+[ -z "${MANPATH-}" ] || export MANPATH=":${MANPATH#:}";
+export INFOPATH="/home/linuxbrew/.linuxbrew/share/info:${INFOPATH:-}";
 
 # export PATH="${PATH}:${HOME}/.nix-profile/bin"
 # export LOCALE_ARCHIVE="$(nix-env --installed --no-name --out-path --query glibc-locales)/lib/locale/locale-archive"
@@ -67,21 +79,50 @@ export PATH="$PATH:/usr/local/go/bin"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# ONLY load bash_completion if we are actually in Bash
+
+if [[ -n "$BASH_VERSION" ]]; then
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+    shopt -s autocd
+    shopt -s cdable_vars
+
+    cd() {
+      builtin pushd "$@" > /dev/null || return
+    }
+
+    back() {
+      builtin cd -
+    }
+
+    prevdir() {
+      builtin pushd +1 > /dev/null || return
+    }
+
+    nextdir() {
+      builtin pushd -0 > /dev/null || return
+    }
+
+    alias ..='cd ..'
+    alias ...='cd ../..'
+    alias ....='cd ../../..'
+    alias d='dirs -v'
+fi
 
 # If ZSH, then load these
-if [[ $ZSH_STARTING == "true" ]]; then
+if [[ -n "${ZSH_VERSION}" ]]; then
+
     #source "${XDG_CONFIG_HOME:-$HOME/.config}/asdf-direnv/zshrc"
-    unset ZSH_STARTING
     DISABLE_UPDATE_PROMPT=true
-    alias shopt="echo"
-    export LC_ALL=en_US.UTF-8
-    export LANG=en_US.UTF-8
+    # alias shopt="echo"
+    #export LC_ALL=en_US.UTF-8
+    #export LANG=en_US.UTF-8
     HISTFILE=~/.histfile
     HISTSIZE=100000000000
     SAVEHIST=100000000000
     ZSH_COLORIZE_STYLE="colorful"
-    ZSH_THEME="powerlevel10k/powerlevel10k"
+    #ZSH_THEME="powerlevel10k/powerlevel10k"
+    export ZSH_THEME=""
 
     #source ~/powerlevel10k/powerlevel10k.zsh-theme
     source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
@@ -91,6 +132,27 @@ if [[ $ZSH_STARTING == "true" ]]; then
     export ZSH="$HOME/.oh-my-zsh"
     # Uncomment the following line to use case-sensitive completion.
     # CASE_SENSITIVE="true"
+
+    setopt AUTO_CD
+    setopt CDABLE_VARS
+    setopt AUTO_PUSHD
+    setopt PUSHD_IGNORE_DUPS
+    setopt PUSHD_SILENT
+    dirs -v > /dev/null 2>&1
+
+    alias back='cd -'
+    alias prev='pushd +1'
+    alias dirs='dirs -v'
+
+    prevdir() # Go back to the previous directory in the stack
+    {
+      pushd +1 > /dev/null
+    }
+
+    nextdir() # Go forward to the next directory in the stack
+    {
+      pushd -0 > /dev/null
+    }
 
     # Uncomment the following line to use hyphen-insensitive completion.
     # Case-sensitive completion must be off. _ and - will be interchangeable.
@@ -109,12 +171,24 @@ if [[ $ZSH_STARTING == "true" ]]; then
     # Custom plugins may be added to $ZSH_CUSTOM/plugins/
     # Example format: plugins=(rails git textmate ruby lighthouse)
     # Add wisely, as too many plugins slow down shell startup.
-    plugins=(git)
+    source <(fzf --zsh)
+    plugins=(git git-escape-magic command-not-found salt composer sudo gradle zsh-navigation-tools zsh-interactive-cd)
+    # plugins=(git colored-man-pages colorize command-not-found composer dnf git-escape-magic gitignore gradle node python pylint salt sudo systemd yarn zsh-navigation-tools zsh-interactive-cd)
     source $ZSH/oh-my-zsh.sh
 
     # End of lines configured by zsh-newuser-install
     # The following lines were added by compinstall
     zstyle :compinstall filename "${HOME}/.zshrc"
+
+    export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE="20"
+    export ZSH_AUTOSUGGEST_USE_ASYNC=1
+    echo "will"
+
+    _complete_alias() {
+        [[ -n $PREFIX ]] && compadd -- ${(M)${(k)galiases}:#$PREFIX*}
+        return 1
+    }
+    zstyle ':completion:*' completer _complete_alias _complete _ignored
 
     # append completions to fpath
     # fpath=(${ASDF_DIR}/completions $fpath)
@@ -122,27 +196,44 @@ if [[ $ZSH_STARTING == "true" ]]; then
     # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
     # Initialization code that may require console input (password prompts, [y/n]
     # confirmations, etc.) must go above this block; everything else may go below.
-    if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-      source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-    fi
+    #if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+    #  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+    #fi
 
     # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-    [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+    #[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
     # initialise completions with ZSH's compinit
     autoload -Uz compinit && compinit
 
+    # Initialize Oh My Posh (Takes over the prompt from Oh My Zsh)
+    source $HOME/.dotfiles/home/omp/helper
+
+    if [[ "$POSH_PLAIN" == "1" ]]; then
+      eval "$(oh-my-posh init zsh --config $DOTFILES_PATH/home/omp/plain.yaml)"
+    else
+      eval "$(oh-my-posh init zsh --config "$DOTFILES_PATH/home/omp/final.yaml")"
+    fi
+
+    ### ZNT's installer added snippet ###
+    fpath=( "$fpath[@]" "$HOME/.config/znt/zsh-navigation-tools" )
+    autoload n-aliases n-cd n-env n-functions n-history n-kill n-list n-list-draw n-list-input n-options n-panelize n-help
+    autoload znt-usetty-wrapper znt-history-widget znt-cd-widget znt-kill-widget
+    alias naliases=n-aliases ncd=n-cd nenv=n-env nfunctions=n-functions nhistory=n-history
+    alias nkill=n-kill noptions=n-options npanelize=n-panelize nhelp=n-help
+    zle -N znt-history-widget
+    bindkey '^R' znt-history-widget
+    setopt AUTO_PUSHD HIST_IGNORE_DUPS PUSHD_IGNORE_DUPS
+    zstyle ':completion::complete:n-kill::bits' matcher 'r:|=** l:|=*'
+    ### END ###
+
     #source ~/.zplug/init.zsh
     #zplug "so-fancy/diff-so-fancy", as:command, use:bin/git-dsf
-
 fi
 
 # vscode helper
 [[ "$TERM_PROGRAM" == "vscode" ]] && . "$(code --locate-shell-integration-path $(readlink /proc/$$/exe | sed "s/.*\///"))"
 export GH_PAGER=""
-
-# clean PATH
-export PATH=$(echo "$PATH" | awk -v RS=: -v ORS=: '!seen[$0]++' | sed 's/:$//; s/^://; s/::*/:/g')
 
 #init_docker
 #init_nginx

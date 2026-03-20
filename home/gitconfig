@@ -39,3 +39,10 @@
 	stripLeadingSymbols = false
 [init]
 	defaultBranch = master
+[push]
+	autoSetupRemote = true
+	default = current
+[remote]
+	pushDefault = origin
+[fetch]
+	prune = true

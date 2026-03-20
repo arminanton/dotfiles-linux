@@ -12,12 +12,13 @@ alias s="sudo "
 alias g="git"
 alias h="history"
 
-#alias edit-zsh="vim $WILLIAM_DOTFILES/home/zshrc"
-#alias edit-p10k="vim $WILLIAM_DOTFILES/home/p10k.zsh"
-#alias reload-zsh="exec zsh" #"source ~/william_zsh"
-#alias reload-p10k="p10k reload"
-#alias p10k-reset='source "${$WILLIAM_DOTFILES}/home/p10k.zsh"'
-#alias reload-alias="source $WILLIAM_DOTFILES/home/aliases"
+alias dfh="cd $DOTFILES_PATH"
+alias edit-zsh="vim $DOTFILES_PATH/home/zshrc"
+alias edit-p10k="vim $DOTFILES_PATH/home/p10k.zsh"
+alias reload-zsh="exec zsh"
+alias reload-p10k="p10k reload"
+alias p10k-reset='source "${$DOTFILES_PATH}/home/p10k.zsh"'
+alias reload-alias="source $DOTFILES_PATH/home/aliases"
 
 alias admin="sudo -i -u root"
 
@@ -44,15 +45,13 @@ alias sct="s cat"
 alias sv="s vim"
 alias schw="s chown"
 alias schwr="s chown -Rf"
-# alias sct="s systemctl "
-# alias scts="s systemctl status"
-# alias sctb="s systemctl start"
-# alias sctx="s systemctl stop"
-# alias sctr="s systemctl restart"
-# alias scte="s systemctl enable"
-# alias sctd="s systemctl disable"
+alias scts="s systemctl status"
+alias sctb="s systemctl start"
+alias sctx="s systemctl stop"
+alias sctr="s systemctl restart"
+alias scte="s systemctl enable"
+alias sctd="s systemctl disable"
 
-#alias localip="ipconfig getifaddr en0"
 alias dhelp="grep \"^function\" ${DOTFILES_PATH}/home/functions | sed -e 's/function/\[/g; /\[/ s/\ //;' | sed 's/() #/] -> /g'"
 
 alias dockps='docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"'
@@ -135,3 +134,7 @@ alias aws-control-cron-unset="crontab -l | grep -v 'assume-myrole' | crontab -"
 # last callers
 #switch-java 17
 
+alias brew='bash -c "source ~/.dotfiles/loader/william && brew \"\$@\"" --'
+
+# remove duplicates
+clean_env

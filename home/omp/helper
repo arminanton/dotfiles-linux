@@ -1,0 +1,207 @@
+function _omp_set_context() {
+  local POSH_IP=""
+  local default_if=""
+
+  # ------------------------[ Network: local IP ]-------------------------
+  if command -v ip >/dev/null 2>&1; then
+    POSH_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{
+      for (i=1; i<=NF; i++) if ($i=="src") { print $(i+1); exit }
+    }')
+  fi
+
+  if [[ -z "$POSH_IP" ]] && command -v route >/dev/null 2>&1 && command -v ipconfig >/dev/null 2>&1; then
+    default_if=$(route -n get default 2>/dev/null | awk '/interface:/{print $2; exit}')
+    [[ -n "$default_if" ]] && POSH_IP=$(ipconfig getifaddr "$default_if" 2>/dev/null)
+  fi
+
+  export POSH_IP="$POSH_IP"
+
+  # ------------------------[ Disk ]--------------------------------------
+  export POSH_DISK="$(
+    df -kP / 2>/dev/null | awk 'NR==2 {printf "%.1f%% [%.0f/%.0fGB]", ($3/$2)*100, $3/1048576, $2/1048576}'
+  )"
+
+  export POSH_DISK_PCT="$(
+    df -kP / 2>/dev/null | awk 'NR==2 {printf "%.0f", ($3/$2)*100}'
+  )"
+
+  # ------------------------[ EC2 metadata once per shell ]---------------
+  if [[ -z "${POSH_EC2_INIT_DONE:-}" ]]; then
+    export POSH_EC2_INIT_DONE=1
+
+    local token=""
+    token="$(curl -fsS -m 1 -X PUT 'http://169.254.169.254/latest/api/token' \
+      -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' 2>/dev/null)"
+
+    if [[ -n "$token" ]]; then
+      export POSH_EC2_ID="$(
+        curl -fsS -m 1 \
+          -H "X-aws-ec2-metadata-token: $token" \
+          'http://169.254.169.254/latest/meta-data/instance-id' 2>/dev/null
+      )"
+
+      export POSH_EC2_NAME="$(
+        curl -fsS -m 1 \
+          -H "X-aws-ec2-metadata-token: $token" \
+          'http://169.254.169.254/latest/meta-data/tags/instance/Name' 2>/dev/null
+      )"
+    else
+      export POSH_EC2_ID="$(hostname)"
+      export POSH_EC2_NAME="$(hostname)"
+    fi
+  fi
+
+  # ------------------------[ Reset git-related vars ]--------------------
+  export POSH_GIT_DEBUG="start"
+  export POSH_GIT_PROVIDER=""
+  export POSH_GIT_PROVIDER_URL=""
+  export POSH_GIT_REPO_URL=""
+  export POSH_GIT_REPO_ICON=""
+  export POSH_GIT_BRANCH_URL=""
+  export POSH_GIT_COMMIT_URL=""
+  export POSH_GIT_REMOTE_NAME=""
+  export POSH_GIT_BRANCH=""
+  export POSH_GIT_COMMIT=""
+  export POSH_GIT_COMMIT_SHORT=""
+  export POSH_GIT_REPO_NAME=""
+  export POSH_GIT_HOST=""
+
+  # ------------------------[ Git context ]-------------------------------
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    export POSH_GIT_DEBUG="not-a-git-repo"
+    return 0
+  }
+
+  local upstream_ref remote_name remote_url branch sha short_sha
+  local host repo_path https_repo provider
+
+  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
+  sha="$(git rev-parse HEAD 2>/dev/null)" || return 0
+  short_sha="$(git rev-parse --short=7 HEAD 2>/dev/null)" || return 0
+
+  upstream_ref="$(git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null || true)"
+  [[ -n "$upstream_ref" ]] && remote_name="${upstream_ref%%/*}"
+  [[ -z "$remote_name" ]] && remote_name="origin"
+
+  export POSH_GIT_BRANCH="$branch"
+  export POSH_GIT_COMMIT="$sha"
+  export POSH_GIT_COMMIT_SHORT="$short_sha"
+  export POSH_GIT_REMOTE_NAME="$remote_name"
+
+  remote_url="$(git remote get-url "$remote_name" 2>/dev/null || true)"
+  [[ -n "$remote_url" ]] || {
+    export POSH_GIT_DEBUG="no-remote-url"
+    return 0
+  }
+
+  case "$remote_url" in
+    git@*:* )
+      host="${remote_url#git@}"
+      host="${host%%:*}"
+      repo_path="${remote_url#*:}"
+      ;;
+    ssh://git@*/* )
+      host="${remote_url#ssh://git@}"
+      host="${host%%/*}"
+      repo_path="${remote_url#ssh://git@${host}/}"
+      ;;
+    http://*|https://* )
+      host="${remote_url#*://}"
+      host="${host%%/*}"
+      repo_path="${remote_url#*://${host}/}"
+      ;;
+    * )
+      export POSH_GIT_DEBUG="remote-parse-failed"
+      return 0
+      ;;
+  esac
+
+  repo_path="${repo_path%.git}"
+  https_repo="https://${host}/${repo_path}"
+
+  export POSH_GIT_HOST="$host"
+  export POSH_GIT_REPO_NAME="${repo_path##*/}"
+  export POSH_GIT_REPO_URL="$https_repo"
+  export POSH_GIT_PROVIDER_URL="https://${host}"
+
+  case "$host" in
+    github.com )
+      provider="GitHub"
+      [[ "$POSH_PLAIN" != "1" ]] && provider=" ${provider}"
+
+      export POSH_GIT_BRANCH_URL="${https_repo}/tree/${branch}"
+      export POSH_GIT_COMMIT_URL="${https_repo}/commit/${sha}"
+      ;;
+    *ghe*|*github* )
+      provider="GitHub"
+      [[ "$POSH_PLAIN" != "1" ]] && provider=" ${provider}"
+      export POSH_GIT_BRANCH_URL="${https_repo}/tree/${branch}"
+      export POSH_GIT_COMMIT_URL="${https_repo}/commit/${sha}"
+      ;;
+    *gitlab* )
+      provider="GitLab"
+      [[ "$POSH_PLAIN" != "1" ]] && provider=" ${provider}"
+      export POSH_GIT_BRANCH_URL="${https_repo}/-/tree/${branch}"
+      export POSH_GIT_COMMIT_URL="${https_repo}/-/commit/${sha}"
+      ;;
+    *bitbucket* )
+      provider="Bitbucket"
+      [[ "$POSH_PLAIN" != "1" ]] && provider=" ${provider}"
+      export POSH_GIT_BRANCH_URL="${https_repo}/src/${branch}"
+      export POSH_GIT_COMMIT_URL="${https_repo}/commits/${sha}"
+      ;;
+    dev.azure.com|*.visualstudio.com )
+      provider="Azure"
+      [[ "$POSH_PLAIN" != "1" ]] && provider=" ${provider}"
+      export POSH_GIT_BRANCH_URL="${https_repo}?version=GB${branch}"
+      export POSH_GIT_COMMIT_URL="${https_repo}/commit/${sha}"
+      ;;
+    * )
+      provider="$host"
+      export POSH_GIT_BRANCH_URL="${https_repo}"
+      export POSH_GIT_COMMIT_URL="${https_repo}"
+      ;;
+  esac
+
+  export POSH_GIT_PROVIDER="$provider"
+  export POSH_GIT_DEBUG="done"
+}
+
+function _git_auto_fetch() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return
+
+  local gitdir repokey stamp now stampdir
+  gitdir=$(git rev-parse --git-dir 2>/dev/null) || return
+
+  if command -v shasum >/dev/null 2>&1; then
+    repokey=$(printf '%s' "$gitdir" | shasum | awk '{print $1}')
+  elif command -v sha1sum >/dev/null 2>&1; then
+    repokey=$(printf '%s' "$gitdir" | sha1sum | awk '{print $1}')
+  else
+    repokey=$(printf '%s' "$gitdir" | tr '/ :' '___')
+  fi
+
+  stampdir="${XDG_CACHE_HOME:-$HOME/.cache}/omp-git-fetch"
+  stamp="${stampdir}/${repokey}"
+  now=$(date +%s)
+
+  mkdir -p "$stampdir" 2>/dev/null || return
+
+  if [[ ! -r "$stamp" ]] || (( now - $(<"$stamp") > 300 )); then
+    {
+      command git fetch --all --prune --quiet >/dev/null 2>&1 </dev/null
+    } &!
+    printf '%s' "$now" >| "$stamp"
+  fi
+}
+
+typeset -ga precmd_functions
+# precmd_functions+=(_git_auto_fetch _omp_set_context)
+(( ${precmd_functions[(I)_git_auto_fetch]} )) || precmd_functions+=(_git_auto_fetch)
+(( ${precmd_functions[(I)_omp_set_context]} )) || precmd_functions+=(_omp_set_context)
+
+# load theme
+#eval "$(oh-my-posh init zsh --config $DOTFILES_PATH/home/omp/final.yaml)"
+#eval "$(oh-my-posh init zsh --config $DOTFILES_PATH/home/omp/power.yaml)"
+#eval "$(oh-my-posh init zsh --config $DOTFILES_PATH/home/omp/owl.yaml)"
+#eval "$(oh-my-posh init zsh --config $DOTFILES_PATH/home/omp/rainbow.yaml)"

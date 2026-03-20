@@ -3,4 +3,3 @@
 . "${HOME}/.dotfiles-path"
 . "${DOTFILES_PATH}/home/tools"
 . "${DOTFILES_PATH}/home/aliases"
-

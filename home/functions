@@ -636,8 +636,10 @@ switch-java() # change java version
     11)  ;;
     17)  ;;
     21)  ;;
-    23)  ;;
-    *) echo "Usage: switch-java {8|11|17|21|23}"; return 1 ;;
+    23)  version="latest" ;;
+    25)  version="latest" ;;
+    26)  version="latest" ;;
+    *) echo "Usage: switch-java {8|11|17|21|23|25|26}"; return 1 ;;
   esac
 
   local base_path="/usr/lib/jvm/java-${version}-openjdk"
@@ -650,6 +652,8 @@ switch-java() # change java version
   done
 
   export JAVA_HOME="$base_path"
+  export PATH="${JAVA_HOME}/bin:${PATH}"
+  export CLASSPATH=".:${JAVA_HOME}/lib:${JAVA_HOME}/lib/tools.jar"
   echo "Switched to Java $ver → JAVA_HOME=$JAVA_HOME"
   java -version
 }
@@ -1238,48 +1242,34 @@ function refreshdns() # Flushes DNS
 	sudo killall -HUP mDNSResponder
 }
 
-function s()
+function no_output() # Run a command without printing any output
 {
-    sudo $@;
-}
-
-function sct()
-{
-    s systemctl $@;
-}
-
-function scts()
-{
-    sct status $@;
-}
-
-function sctb()
-{
-    sct start $@;
-}
-
-function sctx()
-{
-    sct stop $@;
-}
-
-function sctr()
-{
-    sct restart $@;
-}
-
-function scte()
-{
-    sct enable $@;
-}
-
-function sctd()
-{
-    sct disable $@;
-}
-
-function no_output() {
     $@ >/dev/null 2>&1
+}
+
+function clean_env() # Remove duplicate entries from PATH, MANPATH, and INFOPATH environment variables
+{
+    export PATH=$(echo "$PATH" | awk -v RS=: -v ORS=: '!seen[$0]++' | sed 's/:$//; s/^://; s/::*/:/g')
+    #export MANPATH=$(echo "$MANPATH" | awk -v RS=: -v ORS=: '!seen[$0]++' | sed 's/:$//; s/^://; s/::*/:/g')
+    #export INFOPATH=$(echo "$INFOPATH" | awk -v RS=: -v ORS=: '!seen[$0]++' | sed 's/:$//; s/^://; s/::*/:/g')
+}
+
+function brew() # run brew command as ndsadmin user with the proper environment variables for Homebrew on Linux
+{
+    export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew";
+    export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar";
+    export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew";
+    export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin${PATH+:$PATH}";
+    [ -z "${MANPATH-}" ] || export MANPATH=":${MANPATH#:}";
+    export INFOPATH="/home/linuxbrew/.linuxbrew/share/info:${INFOPATH:-}";
+
+    clean_env
+
+    if [[ "$(whoami)" == "ndsadmin" ]]; then
+        /home/linuxbrew/.linuxbrew/Homebrew/bin/brew "$@"
+    else
+        sudo -u ndsadmin -i /home/linuxbrew/.linuxbrew/Homebrew/bin/brew "$@"
+    fi
 }
 
 #Provides explanation for aliases created in another file

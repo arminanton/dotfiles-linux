@@ -1,3 +1,5 @@
+# custom files
+custom/
 
 # temp files directories
 cache/
@@ -7,3 +9,7 @@ log/
 
 # editor configs
 .vscode
+.idea
+
+# zcompile cached files
+*.zwc
