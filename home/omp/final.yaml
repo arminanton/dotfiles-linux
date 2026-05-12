@@ -410,8 +410,11 @@ blocks:
           {{- $cwd := osClean .AbsolutePWD -}}
           {{- $homeN := replace "\\" "/" $home -}}
           {{- $cwdN := replace "\\" "/" $cwd -}}
+          {{- $isRoot := regexMatch "^([A-Za-z]:)?/$" $cwdN -}}
           {{- if and $home (regexMatch (printf "^%s(/|$)" (regexQuoteMeta $homeN)) $cwdN) -}}
             <>  </><p:folder-bg,transparent></><transparent,p:path-bg></>
+          {{- else if $isRoot -}}
+            <>  </><p:folder-bg,transparent></><transparent,p:path-bg></>
           {{- else -}}
             <>  </><p:folder-bg,transparent></><transparent,p:path-bg></><p:path-fg,p:path-bg> /   </>
           {{- end -}}
@@ -422,7 +425,7 @@ blocks:
         background: "p:path-bg"
         foreground: "p:path-fg"
         trailing_diamond: ""
-        template: "{{ .Path }} "
+        template: '{{ if .RootDir }} {{ replace "\\" "/" .Location }} {{ else }}{{ .Path }} {{ end }}'
         options:
           style: powerlevel
           max_width: 80

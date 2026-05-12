@@ -66,9 +66,10 @@ alias gp="./gradlew clean package"
 
 alias gf="git fetch"
 alias gl="git pull"
-alias gfp="git fetch; git pull"
+alias gfp="set +x; git branch --set-upstream-to=origin/\$(git branch --show-current) \$(git branch --show-current) >/dev/null 2>&1 || true >/dev/null 2>&1; git fetch; git pull"
 alias gx="git checkout"
-alias gn="git checkout -b"
+# alias gn="git checkout -b"
+alias gn="git-new-branch"
 alias gb="git branch --show-current"
 alias ga="git branch"
 alias gaa="git add .; git status"
@@ -126,6 +127,8 @@ alias aws-control-creds-enable="echo 'enabled=1' > ~/.dotfiles/assume-myrole.con
 alias aws-control-creds-disable="echo 'enabled=0' > ~/.dotfiles/assume-myrole.control"
 alias aws-control-cron-set="crontab -l; echo '*/5 * * * * $HOME/.dotfiles/assume-myrole >> $HOME/.dotfiles/assume-role-refresh.log 2>&1' | crontab -"
 alias aws-control-cron-unset="crontab -l | grep -v 'assume-myrole' | crontab -"
+
+alias updates="journalctl -u dnf-automatic-install.service"
 
 # free space
 #sudo rm -rf /mnt/tmp/scratchspace/*

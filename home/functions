@@ -179,6 +179,19 @@ function set-region() # set default aws region
     fi
 }
 
+function git-new-branch() # git checkout -b with branch name validation
+{
+    if [[ -n "${1}" ]]; then
+        if [[ ${1} =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+            git checkout -b "${1}"
+        else
+            echo "Branch name contains invalid characters. Allowed: letters, numbers, dots, underscores, slashes, and dashes."
+        fi
+    else
+        echo "Please provide a branch name."
+    fi
+}
+
 function git-commit() # Git commit allowing to pass two scripts as message (title and description)
 {
     total="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
