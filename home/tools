@@ -182,7 +182,6 @@ if [[ -n "${ZSH_VERSION}" ]]; then
 
     export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE="20"
     export ZSH_AUTOSUGGEST_USE_ASYNC=1
-    echo "will"
 
     _complete_alias() {
         [[ -n $PREFIX ]] && compadd -- ${(M)${(k)galiases}:#$PREFIX*}
